@@ -14,11 +14,13 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAdminUser
 from rest_framework_oauth.authentication import OAuth2Authentication
 from social_django.models import UserSocialAuth
 
 from openedx.core.lib.api.authentication import OAuth2AuthenticationAllowInactiveUser
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermission
+from openedx.core.lib.api.view_utils import view_auth_classes
 from third_party_auth import pipeline
 from third_party_auth.api import serializers
 from third_party_auth.api.permissions import ThirdPartyAuthProviderApiPermission
@@ -393,11 +395,14 @@ class UserMappingView(ListAPIView):
         return context
 
 
+@view_auth_classes(is_authenticated=True)
 class OAuthProvidersViewset(ModelViewSet):
     """API views to dynamically CRUD OAuth2 Clients"""
     serializer_class = serializers.OAuthProviderSerializer
+    permission_classes = [IsAdminUser]
 
     def get_queryset(self):
         """Return most recent config for each slug/site combo"""
+        # permission checking. We allow both API_KEY access and OAuth2 client credential access
         queryset = OAuth2ProviderConfig.objects.current_set().order_by('site__domain')
         return queryset
