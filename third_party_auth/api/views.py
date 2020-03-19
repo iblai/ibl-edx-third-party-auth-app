@@ -403,6 +403,7 @@ class OAuthProvidersViewset(ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        """Return most recent config for each slug/site combo"""
+        """Return most recent config for each slug/site combo for backend"""
         queryset = OAuth2ProviderConfig.objects.current_set().order_by('site__domain')
+        queryset = queryset.filter(backend_name=self.kwargs.get('backend'))
         return queryset

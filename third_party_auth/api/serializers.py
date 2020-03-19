@@ -4,7 +4,7 @@ import json
 
 from django.contrib.sites.models import Site
 from rest_framework import serializers
-from third_party_auth.models import OAuth2ProviderConfig
+from third_party_auth.models import OAuth2ProviderConfig, _PSA_OAUTH2_BACKENDS
 
 
 class JsonSettingField(serializers.Field):
@@ -55,15 +55,21 @@ class UserMappingSerializer(serializers.Serializer):  # pylint: disable=abstract
 
 
 class OAuthProviderSerializer(serializers.ModelSerializer):
-    backend = 'keycloak'
+    """ Serializer for OAuth2ProviderConfig's
+
+    This could probably be more generic, like allowing direct access to
+    other_settings, but it's explicit for our purposes
+    """
 
     auth_url = JsonSettingField(key='AUTHORIZATION_URL', model_field='other_settings', source='*')
-    token_url = JsonSettingField(key='ACCESS_TOKEN_URL', model_field='other_settings', source='*')
-    public_key = JsonSettingField(key='PUBLIC_KEY', model_field='other_settings', source='*')
-    site = serializers.SlugRelatedField(slug_field='domain', queryset=Site.objects.all())
-    enabled = serializers.BooleanField()
+    changed_by = serializers.SlugRelatedField(slug_field='username', read_only=True)
     client_id = serializers.CharField(source='key')
+    enabled = serializers.BooleanField()
+    public_key = JsonSettingField(key='PUBLIC_KEY', model_field='other_settings', source='*')
     secret = serializers.CharField()
+    site = serializers.SlugRelatedField(slug_field='domain', queryset=Site.objects.all())
+    token_url = JsonSettingField(key='ACCESS_TOKEN_URL', model_field='other_settings', source='*')
+    other_settings = serializers.JSONField(required=False)
 
     class Meta:
         model = OAuth2ProviderConfig
@@ -82,12 +88,23 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
             'slug',
             'sync_learner_profile_data',
             'visible',
+            'other_settings',
+            'key'
         ]
+
+    def validate_backend_name(self, value):
+        """Raise ValidationError if backend not active"""
+        if value not in _PSA_OAUTH2_BACKENDS:
+            raise serializers.ValidationError(
+                '{} is not a valid backend'.format(value))
+        return value
 
     def create(self, data):
         """Save Create instance with specified defaults for excluded fields"""
+        backend_name = self.context['view'].kwargs['backend']
+        self.validate_backend_name(backend_name)
+
         # Requires sensible defaults
-        data['backend_name'] = self.backend
         data['enable_sso_id_verification'] = False
         data['icon_class'] = 'fa-sign-in'
         data['icon_image'] = None
@@ -98,15 +115,20 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         data['skip_email_verification'] = True
         data['skip_hinted_login_dialog'] = False
         data['skip_registration_form'] = True
-        data['slug'] = self.backend
+        data['slug'] = backend_name
         data['sync_learner_profile_data'] = True
         data['visible'] = True
+        data['changed_by'] = self.context['request'].user
+        data['backend_name'] = backend_name
 
-        data['other_settings'] = json.dumps({
+        # Update other_settings
+        other_settings = {
             'AUTHORIZATION_URL': data.pop('auth_url'),
             'ACCESS_TOKEN_URL': data.pop('token_url'),
             'PUBLIC_KEY': data.pop('public_key'),
-        })
+        }
+        other_settings.update(data.get('other_settings', {}))
+        data['other_settings'] = json.dumps(other_settings)
 
         return self.Meta.model.objects.create(**data)
 
