@@ -3,7 +3,12 @@
 from django.conf import settings
 from django.conf.urls import url
 
-from .views import UserMappingView, UserView, UserViewV2
+from rest_framework.routers import DefaultRouter
+
+from .views import UserMappingView, UserView, UserViewV2, OAuthProvidersViewset
+
+router = DefaultRouter()
+router.register('v0/oauth-providers', OAuthProvidersViewset, base_name='third_party_auth_oauth_providers')
 
 
 PROVIDER_PATTERN = r'(?P<provider_id>[\w.+-]+)(?:\:(?P<idp_slug>[\w.+-]+))?'
@@ -21,3 +26,5 @@ urlpatterns = [
         name='third_party_auth_user_mapping_api',
     ),
 ]
+
+urlpatterns += router.urls

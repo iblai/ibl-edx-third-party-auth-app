@@ -1,6 +1,8 @@
 """ Django REST Framework Serializers """
 
+from django.contrib.sites.models import Site
 from rest_framework import serializers
+from third_party_auth.models import OAuth2ProviderConfig
 
 
 class UserMappingSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -20,3 +22,17 @@ class UserMappingSerializer(serializers.Serializer):  # pylint: disable=abstract
     def get_remote_id(self, social_user):
         """ Gets remote id from social user based on provider """
         return self.provider.get_remote_id_from_social_auth(social_user)
+
+
+class SiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Site
+        exclude = []
+
+
+class OAuthProviderSerializer(serializers.ModelSerializer):
+    site = SiteSerializer()
+
+    class Meta:
+        model = OAuth2ProviderConfig
+        fields = '__all__'

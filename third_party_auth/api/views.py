@@ -13,6 +13,7 @@ from rest_framework import exceptions, status, throttling
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_oauth.authentication import OAuth2Authentication
 from social_django.models import UserSocialAuth
 
@@ -22,6 +23,7 @@ from third_party_auth import pipeline
 from third_party_auth.api import serializers
 from third_party_auth.api.permissions import ThirdPartyAuthProviderApiPermission
 from third_party_auth.provider import Registry
+from third_party_auth.models import OAuth2ProviderConfig
 
 
 class ProviderBaseThrottle(throttling.UserRateThrottle):
@@ -389,3 +391,13 @@ class UserMappingView(ListAPIView):
         context['provider'] = self.provider
 
         return context
+
+
+class OAuthProvidersViewset(ModelViewSet):
+    """API views to dynamically CRUD OAuth2 Clients"""
+    serializer_class = serializers.OAuthProviderSerializer
+
+    def get_queryset(self):
+        """Return most recent config for each slug/site combo"""
+        queryset = OAuth2ProviderConfig.objects.current_set().order_by('site__domain')
+        return queryset
