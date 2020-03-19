@@ -400,9 +400,9 @@ class OAuthProvidersViewset(ModelViewSet):
     """API views to dynamically CRUD OAuth2 Clients"""
     serializer_class = serializers.OAuthProviderSerializer
     permission_classes = [IsAdminUser]
+    pagination_class = None
 
     def get_queryset(self):
         """Return most recent config for each slug/site combo"""
-        # permission checking. We allow both API_KEY access and OAuth2 client credential access
         queryset = OAuth2ProviderConfig.objects.current_set().order_by('site__domain')
         return queryset
