@@ -329,6 +329,7 @@ class OAuth2ProviderConfig(ProviderConfig):
     Configuration Entry for an OAuth2 based provider.
     Also works for OAuth1 providers.
     """
+    KEY_FIELDS = ('slug', 'site_id')
     prefix = 'oa2'
     backend_name = models.CharField(
         max_length=50, blank=False, db_index=True,
@@ -375,6 +376,12 @@ class OAuth2ProviderConfig(ProviderConfig):
             assert isinstance(other_settings, dict), "other_settings should be a JSON object (dictionary)"
             return other_settings[name]
         raise KeyError
+
+    @property
+    def provider_id(self):
+        """ Unique string key identifying this provider. Must be URL and css class friendly. """
+        assert self.prefix is not None
+        return "-".join((self.prefix, ) + tuple(str(getattr(self, field)) for field in self.KEY_FIELDS))
 
 
 class SAMLConfiguration(ConfigurationModel):
