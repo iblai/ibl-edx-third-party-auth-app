@@ -102,8 +102,27 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         data['sync_learner_profile_data'] = True
         data['visible'] = True
 
+        # Ensure item is saved as proper json string in other_settings text field
+        # edx relies on `clean` to do this normally but only called in admin
         data['other_settings'] = json.dumps(data['other_settings'])
         return self.Meta.model.objects.create(**data)
 
-    def update(self, instance, data):
-        return self.create(data)
+    def to_representation(self, instance):
+        """Make sure other_settings is always JSON
+
+        b/c other_settings is actually a TextField on the model, when a GET is
+        requested, it returns the content as a string instead of actual JSON.
+
+        This checks the current return type and makes sure it's always JSON
+
+        Not sure why they didn't use the jsonfield.JSONField; maybe wasn't
+        known at time of creation.
+        """
+        rep = super(OAuthProviderSerializer, self).to_representation(instance)
+        settings = rep['other_settings']
+        # Make sure empty string can be loaded as empty json
+        if not settings.strip():
+            settings = u"{}"
+        if isinstance(settings, (str, unicode)):
+            rep['other_settings'] = json.loads(settings)
+        return rep
