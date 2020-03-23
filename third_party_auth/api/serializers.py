@@ -43,7 +43,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
             'enable_sso_id_verification',
             'icon_class',
             'icon_image',
-            'key'
+            'key',
             'max_session_length',
             'secondary',
             'send_to_registration_first',
@@ -55,6 +55,23 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
             'sync_learner_profile_data',
             'visible',
         ]
+
+    def validate_other_settings(self, value):
+        """Raise ValidationError if specific entries not in other_settings
+
+        This required values come from
+        serializer.context['required_other_settings']
+        """
+        keys = set(value.keys())
+        required = set(self.context.get('required_other_settings', []))
+        missing = required - keys
+        if missing:
+            raise serializers.ValidationError(
+                'Missing required fields in other_settings: {}'.format(
+                    ', '.join(missing)
+                )
+        )
+        return value
 
     def validate_backend_name(self, value):
         """Raise ValidationError if backend not active"""
