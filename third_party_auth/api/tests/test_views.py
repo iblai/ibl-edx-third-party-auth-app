@@ -396,3 +396,24 @@ class TestOAuth2ProviderViewset(ThirdPartyAuthTestMixin, APITestCase):
         # but nothing returned for keycloak
         resp = self.client.get(self._get_url('list'))
         assert resp.json() == []
+
+    def test_delete_not_supported(self):
+        """Attempt to DELETE pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.delete(self._get_url('delete', pk=provider.id))
+        assert resp.status_code == 405
+
+    def test_put_not_supported(self):
+        """Attempt to PUT to pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.put(self._get_url('update', pk=provider.id))
+        assert resp.status_code == 405
+
+    def test_patch_not_supported(self):
+        """Attempt to PATCH to pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.patch(self._get_url('update', pk=provider.id))
+        assert resp.status_code == 405

@@ -116,6 +116,8 @@ class ThirdPartyAuthTestMixin(object):
         kwargs.setdefault("backend_name", "keycloak")
         kwargs.setdefault("slug", "keycloak")
         kwargs.setdefault("icon_class", "fa-sign-in")
+        kwargs.setdefault("key", "test-fake-key.apps.keycloakrealm.com")
+        kwargs.setdefault("secret", "opensesame")
         return cls.configure_oauth_provider(**kwargs)
 
     @classmethod
