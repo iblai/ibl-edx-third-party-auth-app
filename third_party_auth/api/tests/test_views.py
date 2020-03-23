@@ -95,7 +95,7 @@ class UserViewsMixin(object):
             return []
         return [
             {
-                "provider_id": "oa2-google-oauth2",
+                "provider_id": "oa2-google-oauth2-1",
                 "name": "Google",
                 "remote_id": "{}@gmail.com".format(username),
             },

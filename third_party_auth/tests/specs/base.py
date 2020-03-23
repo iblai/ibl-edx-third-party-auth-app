@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import mock
 from django import test
 from django.contrib import auth
+from django.contrib.sites.models import Site
 from django.contrib.auth import models as auth_models
 from django.contrib.messages.storage import fallback
 from django.contrib.sessions.backends import cache
@@ -248,7 +249,7 @@ class HelperMixin(object):
         request = self.request_factory.get(
             pipeline.get_complete_url(self.backend_name) +
             '?redirect_state=redirect_state_value&code=code_value&state=state_value')
-        request.site = SiteFactory.create()
+        request.site = Site.objects.all()[0] #SiteFactory.create()
         request.user = auth_models.AnonymousUser()
         request.session = cache.SessionStore()
         request.session[self.backend_name + '_state'] = 'state_value'

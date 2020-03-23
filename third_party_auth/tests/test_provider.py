@@ -172,7 +172,7 @@ class RegistryTest(testutil.TestCase):
         self.assertIsNone(provider.Registry.get(None))
 
     def test_get_returns_none_if_provider_not_enabled(self):
-        linkedin_provider_id = "oa2-linkedin-oauth2"
+        linkedin_provider_id = "oa2-linkedin-oauth2-1"
         # At this point there should be no configuration entries at all so no providers should be enabled
         self.assertEqual(provider.Registry.enabled(), [])
         self.assertIsNone(provider.Registry.get(linkedin_provider_id))
