@@ -13,7 +13,7 @@ from rest_framework import exceptions, status, throttling
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework import viewsets, mixins
 from rest_framework.permissions import IsAdminUser
 from rest_framework_oauth.authentication import OAuth2Authentication
 from social_django.models import UserSocialAuth
@@ -395,9 +395,17 @@ class UserMappingView(ListAPIView):
         return context
 
 
+class CreateReadListViewset(mixins.CreateModelMixin,
+                            mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin,
+                            viewsets.GenericViewSet):
+    """Base class for providing Create, List, and Retrieve object methods"""
+    pass
+
+
 @view_auth_classes(is_authenticated=True)
-class OAuthProvidersViewset(ModelViewSet):
-    """API views to dynamically CRUD OAuth2 Clients"""
+class OAuthProvidersViewset(CreateReadListViewset):
+    """API viewset to dynamically Create/List/Retrieve OAuth2 Clients"""
     serializer_class = serializers.OAuthProviderSerializer
     permission_classes = [IsAdminUser]
     pagination_class = None
