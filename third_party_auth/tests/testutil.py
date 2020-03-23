@@ -111,6 +111,14 @@ class ThirdPartyAuthTestMixin(object):
         return cls.configure_oauth_provider(**kwargs)
 
     @classmethod
+    def configure_keycloak_provider(cls, **kwargs):
+        """ Update settings for a keycloak provider and realm """
+        kwargs.setdefault("backend_name", "keycloak")
+        kwargs.setdefault("slug", "keycloak")
+        kwargs.setdefault("icon_class", "fa-sign-in")
+        return cls.configure_oauth_provider(**kwargs)
+
+    @classmethod
     def configure_facebook_provider(cls, **kwargs):
         """ Update the settings for the Facebook third party auth provider/backend """
         kwargs.setdefault("name", "Facebook")

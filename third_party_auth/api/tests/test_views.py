@@ -351,3 +351,48 @@ class UserMappingViewAPITests(TpaAPITestCase):
             for item in ['results', 'count', 'num_pages']:
                 self.assertIn(item, response.data)
             self.assertItemsEqual(response.data['results'], expect_result)
+
+
+class TestOAuth2ProviderViewset(ThirdPartyAuthTestMixin, APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestOAuth2ProviderViewset, cls).setUpClass()
+        cls.non_admin_user = UserFactory()
+        cls.admin_user = UserFactory(is_superuser=True)
+
+    def _get_url(self, name, backend='keycloak', pk=None):
+        """Return the URL for the given viewset name"""
+        if name == 'list' or name == 'create':
+            return reverse('third_party_auth_oauth_providers-list',
+                           kwargs={'backend': backend})
+        if name == 'detail' or name == 'delete' or name == 'update':
+            return reverse('third_party_auth_oauth_providers-detail',
+                           kwargs={'pk': pk, 'backend': backend})
+
+    def test_missing_auth_token_fails(self):
+        """401 returned for all endpoints if no OAuth info provided"""
+        # GET list
+        resp = self.client.get(self._get_url('list'))
+        assert resp.status_code == 401
+
+        resp = self.client.get(self._get_url('detail', pk=1))
+        assert resp.status_code == 401
+
+        resp = self.client.post(self._get_url('list'), data={})
+        assert resp.status_code == 401
+
+    def test_only_providers_for_specified_backend_returned(self):
+        """Providers for specified backend are only ones returned"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Google backend exists
+        self.configure_google_provider()
+
+        # One item returned for google-oauth2
+        resp = self.client.get(self._get_url('list', backend='google-oauth2'))
+        resp = resp.json()
+        assert len(resp) == 1
+
+        # but nothing returned for keycloak
+        resp = self.client.get(self._get_url('list'))
+        assert resp.json() == []

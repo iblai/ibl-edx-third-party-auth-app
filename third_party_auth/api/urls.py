@@ -8,7 +8,7 @@ from rest_framework.routers import DefaultRouter
 from .views import UserMappingView, UserView, UserViewV2, OAuthProvidersViewset
 
 router = DefaultRouter()
-router.register(r'v0/oauth-providers/(?P<backend>\w+)', OAuthProvidersViewset, base_name='third_party_auth_oauth_providers')
+router.register(r'v0/oauth-providers/(?P<backend>[\w.+-]+)', OAuthProvidersViewset, base_name='third_party_auth_oauth_providers')
 
 
 PROVIDER_PATTERN = r'(?P<provider_id>[\w.+-]+)(?:\:(?P<idp_slug>[\w.+-]+))?'
