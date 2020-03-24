@@ -417,7 +417,12 @@ class OAuthProvidersViewset(CreateReadListViewset):
         return queryset
 
     def get_serializer_context(self):
-        """Add list of required field for other_settings"""
+        """Add list of required field for other_settings
+
+        These are mostly only required for keycloak, which is what we are
+        implementing this for. This could be extended or changed for other
+        backends
+        """
         context = super(OAuthProvidersViewset, self).get_serializer_context()
         context['required_other_settings'] = [
             'AUTHORIZATION_URL',
