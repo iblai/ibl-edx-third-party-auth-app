@@ -24,19 +24,19 @@ I made minor updates to the tests:
 
 With these changes, all tests pass as they did before.
 
+Added one additional test in `test_provider.py` that tests multiple keycloak providers being enabled.
+
 ## Installation
 This package is meant to replace the built in `edx_third_party` auth package.
 
 - rename the `third_party_auth` directory in `edx-platform/lms/common/djangoapps/` to `third_party_auth_old`
-- `sudo -Hu edxapp bash`
-- `source /edx/app/edxapp/venvs/edxapp/bin/activate`
-- `pip install git+https://gitlab.com/iblstudios/cisco-third-party-auth`
+- `sudo -Hu edxapp /edx/bin/pip.edxapp install git+https://gitlab.com/iblstudios/cisco-third-party-auth`
 
 ### Enabling Auto Login for SSO Keycloak
 If you want to enable auto login for each domain to their keycloak realm:
 
 - Follow installation instructions for installing the [ibl-tpa-middleware](https://gitlab.com/iblstudios/ibl-tpa-middleware) package
-- Add it to the middleware
+- Add it to the middleware as the second to last entry (leave `SessionCookieDomainOverrideMiddleware` at the end)
 - Set `TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'` in `lms/envs/common.py`
 
 ## KeyCloak Setup
@@ -46,6 +46,8 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - Login to keycloak admin
 - Hover over the realm name in the upper left and select `Add Realm`
 - Give the realm a name **without spaces** and select `Create`
+
+These next steps don't seem to be explicitly required, but they are part of the keycloak tutorial:
 - Select `Roles` on the left
 - Click `Add Role` in the upper right
 - enter `user` as the name, and save
@@ -58,9 +60,9 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - Change `Access Type` to `confidential`
 - Enter `https://edx.subdomain.com/auth/complete/keycloak/*` in the `Valid Redirect URI's` field
     - `edx.subdomain.com` corresponds to which edx subdomain this realm will be associated with
-- Expand `Fin Grain OpenID Connect Configuration`
+- Expand `Fine Grain OpenID Connect Configuration`
     - Change `User Info Signed Response Algorithm` to `RS256`
-    - Change Request Object Signature Algorithm` to `RS256`
+    - Change `Request Object Signature Algorithm` to `RS256`
     - Select `Save`
 - Click `Mappers` at the top
 - Click `Add Builtin` in the upper right
@@ -198,17 +200,17 @@ Example Response:
 
 ```json
 {
-	"name": "Config Name",
-	"enabled": true,
-	"client_id": "edx",
-	"secret": "487faaa7-13c1-48f5-8280-96a453fae8b7",
-	"other_settings": {
-		"PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq2cfbbhEmoHq/aZmuZD4COCzr+rNSzyS9t5Z4O804dWSPmcicJ0p9KPjW7WHW27+MMi9EJ7sAHaoRRnNMEw5ngD+Ap0T4Qf/KUyjQtExhmlVQDIATqEUgZdKYsfTJtJ1nP5jOJFmItKrGjMlHcLgtbPdCNnz/MU0mIevPhnYUGu0lEY0uEyTjuy2WEJw/i/HIf+UzNZXZZ/gED7h37gxDdwfsxP+G+FS5H17JICcTtmkjdx0S2BEj/Re12U/C8iu6Xm1OxHGTokQw2WwlLYodDO4Mnz+H02U0qsHX8l3IW22EPycP3NSzfSvuNatCPxjtninI0TpOfH+HRKFERYAPQIDAQAB",
-		"AUTHORIZATION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/auth",
-		"ACCESS_TOKEN_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/token"
+    "name": "Config Name",
+    "enabled": true,
+    "client_id": "edx",
+    "secret": "487faaa7-13c1-48f5-8280-96a453fae8b7",
+    "other_settings": {
+        "PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq2cfbbhEmoHq/aZmuZD4COCzr+rNSzyS9t5Z4O804dWSPmcicJ0p9KPjW7WHW27+MMi9EJ7sAHaoRRnNMEw5ngD+Ap0T4Qf/KUyjQtExhmlVQDIATqEUgZdKYsfTJtJ1nP5jOJFmItKrGjMlHcLgtbPdCNnz/MU0mIevPhnYUGu0lEY0uEyTjuy2WEJw/i/HIf+UzNZXZZ/gED7h37gxDdwfsxP+G+FS5H17JICcTtmkjdx0S2BEj/Re12U/C8iu6Xm1OxHGTokQw2WwlLYodDO4Mnz+H02U0qsHX8l3IW22EPycP3NSzfSvuNatCPxjtninI0TpOfH+HRKFERYAPQIDAQAB",
+        "AUTHORIZATION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/auth",
+        "ACCESS_TOKEN_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/token"
 
-	},
-	"site": "cluster-v023.iblstudios.com"
+    },
+    "site": "cluster-v023.iblstudios.com"
 }
 ```
 
