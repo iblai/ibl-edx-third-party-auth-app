@@ -1,6 +1,8 @@
 """
 Extra views required for SSO
 """
+from urllib import urlencode
+
 from django.conf import settings
 from django.urls import reverse
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseServerError
@@ -10,6 +12,7 @@ from social_django.utils import load_strategy, load_backend, psa
 from social_django.views import complete
 from social_core.utils import setting_name
 
+from openedx.core.djangoapps.user_authn.views.logout import LogoutView
 from student.models import UserProfile
 from student.views import compose_and_send_activation_email
 import third_party_auth
@@ -18,6 +21,9 @@ from third_party_auth import pipeline, provider
 from .models import SAMLConfiguration, SAMLProviderConfig
 
 URL_NAMESPACE = getattr(settings, setting_name('URL_NAMESPACE'), None) or 'social'
+TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
+TPA_POST_LOGOUT_REDIRECT_FIELD = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_FIELD', 'redirect_uri')
+TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
 
 
 def inactive_user_view(request):
@@ -110,3 +116,55 @@ def post_to_custom_auth_form(request):
         'hmac': pipeline_data['hmac'],
     }
     return render(request, 'third_party_auth/post_custom_auth_entry.html', data)
+
+
+class TPALogoutView(LogoutView):
+    """Set post redirect target to end session url of TPA_LOGOUT_PROVIDER
+
+    This only occurs if this setting is filled out. If there is an
+    END_SESSION_URL value in the TPA_LOGOUT_PROVIDER backend's other settings,
+    it will redirect to that endpoint after logging the user out.
+
+    Ideally, that endpoint will redirect the user back to the the current
+    domains home page.
+    """
+    def get_context_data(self, **kwargs):
+        context = super(TPALogoutView, self).get_context_data(**kwargs)
+        if TPA_LOGOUT_PROVIDER is not None:
+            backend = provider.Registry.get_from_pipeline(
+                {'backend': TPA_LOGOUT_PROVIDER})
+            end_session_url = self._get_end_session_url(backend)
+            end_session_url = self._add_post_logout_redirect_uri(end_session_url)
+            context['target'] = end_session_url if end_session_url else context['target']
+        return context
+
+    def _get_end_session_url(self, backend):
+        """Return end_session_url or '' if not set on backend"""
+        try:
+            end_session_url = backend.get_setting('END_SESSION_URL')
+        except KeyError:
+            end_session_url = ""
+        return end_session_url
+
+    def _add_post_logout_redirect_uri(self, end_session_url):
+        """Optionally add query string for post logout redirect
+
+        Args:
+            end_session_url (str): current end session url
+        Returns:
+            end_session_url or end_session_url + redirect query string
+
+        https://openid.net/specs/openid-connect-session-1_0.html#RedirectionAfterLogout
+        """
+        if not end_session_url or TPA_POST_LOGOUT_REDIRECT_URL is None:
+            return end_session_url
+
+        if TPA_POST_LOGOUT_REDIRECT_URL == 'current_site':
+            url = 'https://{}'.format(self.request.site.domain)
+        else:
+            url = TPA_POST_LOGOUT_REDIRECT_URL
+
+        redirect_uri = {TPA_POST_LOGOUT_REDIRECT_FIELD: url}
+        query_string = urlencode(redirect_uri)
+        end_session_url += '?{}'.format(query_string)
+        return end_session_url

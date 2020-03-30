@@ -427,7 +427,8 @@ class OAuthProvidersViewset(CreateReadListViewset):
         context['required_other_settings'] = [
             'AUTHORIZATION_URL',
             'ACCESS_TOKEN_URL',
-            'PUBLIC_KEY'
+            'PUBLIC_KEY',
+            'END_SESSION_URL'
         ]
         return context
 
