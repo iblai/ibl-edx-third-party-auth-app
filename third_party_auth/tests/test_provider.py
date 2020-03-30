@@ -195,3 +195,44 @@ class RegistryTest(testutil.TestCase):
         google_provider = self.configure_google_provider(enabled=False)
         found = list(provider.Registry.get_enabled_by_backend_name(google_provider.backend_name))
         self.assertEqual(found, [])
+
+    @with_site_configuration(SITE_DOMAIN_A)
+    def test_same_backend_used_on_multiple_sites(self):
+        """Can use same backend configured differently for different sites
+
+        With OAuth2ProviderConfig.KEYS = (slug, site_id), we can configure the
+        same backend with different auth properties on a per site basis.
+
+        This is mostly done to enable KeyCloak realms, since keycloak will be
+        the single provider but there can be multiple realms in keycloak, each
+        with different auth/token/client/secret etc.
+
+        An unfortunate side effect of this is that enabling something like
+        google for _all_ edx would no longer work and would need to be repeated
+        for each site.
+        """
+        site_a = Site.objects.get(domain=SITE_DOMAIN_A)
+
+        # Enabled Keycloak realm on domain A
+        realm_a = self.configure_keycloak_provider(
+            visible=True,
+            enabled=True,
+            site=site_a,
+            name='Domain A',
+            secret='domain A secret')
+
+        # Enabled Keycloak realm on the default example domain
+        realm_example = self.configure_keycloak_provider(
+            name='Example Domain',
+            visible=True,
+            enabled=True
+        )
+
+        # Enabled providers for current A Domain
+        active = [idp.provider_id for idp in provider.Registry.displayed_for_login()]
+
+        assert realm_a.enabled_for_current_site
+        assert not realm_example.enabled_for_current_site
+
+        assert realm_a.provider_id in active
+        assert realm_example.provider_id not in active
