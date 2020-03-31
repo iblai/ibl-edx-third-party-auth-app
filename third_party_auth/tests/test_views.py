@@ -2,15 +2,27 @@
 Test the views served by third_party_auth.
 """
 
+import mock
+import json
 import unittest
 
+
 import ddt
+import pytest
 from django.conf import settings
+from django.test import RequestFactory, TestCase
+from django.test.utils import override_settings
 from lxml import etree
 from onelogin.saml2.errors import OneLogin_Saml2_Error
+from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 
+from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
+from third_party_auth.views import TPALogoutView
+
+from student.tests.factories import UserFactory
 # Define some XML namespaces:
 from third_party_auth.tasks import SAML_XML_NS
+from third_party_auth.models import OAuth2ProviderConfig
 
 from .testutil import AUTH_FEATURE_ENABLED, AUTH_FEATURES_KEY, SAMLTestCase
 
@@ -153,3 +165,146 @@ class SAMLAuthTest(SAMLTestCase):
         self.enable_saml(enabled=False)
         response = self.client.get(self.LOGIN_URL)
         self.assertEqual(response.status_code, 404)
+
+
+class BaseLogoutViewTestCase(TestCase, ThirdPartyAuthTestMixin):
+    @classmethod
+    def setUpClass(cls):
+        super(BaseLogoutViewTestCase, cls).setUpClass()
+        site = SiteFactory()
+        cls.user = UserFactory()
+        cls.factory = RequestFactory()
+        cls.base_request = cls.factory.get('/logout')
+        cls.base_request.site = site
+
+        cls.backend = cls.configure_keycloak_provider(
+            enabled=True, visible=True, other_settings=json.dumps({
+                'END_SESSION_URL': 'https://end.session.com/endpoint',
+            }))
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
+
+class TestTPALogoutView(BaseLogoutViewTestCase):
+    """This class should only be touching the get_context_data function, so
+    that is where we will focus our tests
+    """
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', None)
+    def test_tpa_logout_provider_not_set_has_default_behavior(self):
+        """If TPA_LOGOUT_PROVIDER is None, returns default behavior"""
+        view = TPALogoutView()
+        view.request = self.base_request
+        context = view.get_context_data()
+        context.pop('view')
+
+        expected = {
+            'logout_uris': [],
+            'target': '/',
+        }
+
+        assert context == expected
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    @mock.patch('third_party_auth.views.TPALogoutView._add_post_logout_redirect_uri')
+    def test_end_session_url_is_falsy_returns_default_behavior(self, add_uri_mock):
+        """If final end_session_url is falsy, returns default behavior"""
+        add_uri_mock.return_value = ''
+        view = TPALogoutView()
+        view.request = self.base_request
+        context = view.get_context_data()
+        context.pop('view')
+
+        expected = {
+            'logout_uris': [],
+            'target': '/',
+        }
+
+        assert context == expected
+        add_uri_mock.assert_called_once()
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    @mock.patch('third_party_auth.views.TPALogoutView._add_post_logout_redirect_uri')
+    def test_end_session_url_has_value_replaces_target(self, add_uri_mock):
+        """If final end_session_url is truthy, replaces target with that value"""
+        add_uri_mock.return_value = 'https://somewhere.com'
+        view = TPALogoutView()
+        view.request = self.base_request
+        context = view.get_context_data()
+        context.pop('view')
+
+        expected = {
+            'logout_uris': [],
+            'target': 'https://somewhere.com',
+        }
+
+        assert context == expected
+        add_uri_mock.assert_called_once()
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'empty')
+    def test_tpa_logout_provider_not_found_returns_default_behavior(self):
+        """If TPA_LOGOUT_PROVIDER backend not found, return default behavior"""
+        view = TPALogoutView()
+        view.request = self.base_request
+        context = view.get_context_data()
+        context.pop('view')
+
+        expected = {
+            'logout_uris': [],
+            'target': '/',
+        }
+
+        assert context == expected
+        assert 'defaulting to normal' in self._caplog.text
+
+
+class TestTPALogoutViewAddPostLogoutRedirectUri(BaseLogoutViewTestCase):
+    """Test the _add_post_logout_redirect_uri function of TPALogoutView"""
+
+    def test_no_end_session_url_returns_end_session_url(self):
+        url = ''
+        view = TPALogoutView()
+        view.request = self.base_request
+        end_session_url = view._add_post_logout_redirect_uri(url)
+        assert end_session_url == ''
+
+    @mock.patch('third_party_auth.views.TPA_POST_LOGOUT_REDIRECT_URL', None)
+    def test_no_TPA_POST_LOGOUT_REDIRECT_URL_returns_end_session_url(self):
+        url = 'https://end.session.com/'
+        view = TPALogoutView()
+        view.request = self.base_request
+        end_session_url = view._add_post_logout_redirect_uri(url)
+        assert end_session_url == url
+
+    @mock.patch('third_party_auth.views.TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
+    def test_redirect_to_current_site(self):
+        """When TPA_POST_LOGOUT_REDIRECT_URL is 'current_site', add qs to current site"""
+        url = 'https://end.session.com/'
+        expected_url = 'https://end.session.com/?redirect_uri=https%3A%2F%2F0.testserver.fake'
+        view = TPALogoutView()
+        view.request = self.base_request
+        end_session_url = view._add_post_logout_redirect_uri(url)
+        assert end_session_url == expected_url
+
+    @mock.patch('third_party_auth.views.TPA_POST_LOGOUT_REDIRECT_URL', 'https://my.site.com')
+    def test_redirect_to_specific_site(self):
+        """When TPA_POST_LOGOUT_REDIRECT_URL set to site, add qs to that site"""
+        url = 'https://end.session.com/'
+        expected_url = 'https://end.session.com/?redirect_uri=https%3A%2F%2Fmy.site.com'
+        view = TPALogoutView()
+        view.request = self.base_request
+        end_session_url = view._add_post_logout_redirect_uri(url)
+        assert end_session_url == expected_url
+
+    @mock.patch('third_party_auth.views.TPA_POST_LOGOUT_REDIRECT_FIELD', 'next')
+    @mock.patch('third_party_auth.views.TPA_POST_LOGOUT_REDIRECT_URL', 'https://my.site.com')
+    def test_changing_redirect_url_query_string_param(self):
+        """TPA_POST_LOGOUT_REDIRECT_FIELD is used instead of default 'redirect_ur'"""
+        url = 'https://end.session.com/'
+        expected_url = 'https://end.session.com/?next=https%3A%2F%2Fmy.site.com'
+        view = TPALogoutView()
+        view.request = self.base_request
+        end_session_url = view._add_post_logout_redirect_uri(url)
+        assert end_session_url == expected_url

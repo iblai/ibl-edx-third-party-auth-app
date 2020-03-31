@@ -1,6 +1,8 @@
 """
 Extra views required for SSO
 """
+import logging
+
 from urllib import urlencode
 
 from django.conf import settings
@@ -19,6 +21,8 @@ import third_party_auth
 from third_party_auth import pipeline, provider
 
 from .models import SAMLConfiguration, SAMLProviderConfig
+
+log = logging.getLogger(__name__)
 
 URL_NAMESPACE = getattr(settings, setting_name('URL_NAMESPACE'), None) or 'social'
 TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
@@ -133,9 +137,15 @@ class TPALogoutView(LogoutView):
         if TPA_LOGOUT_PROVIDER is not None:
             backend = provider.Registry.get_from_pipeline(
                 {'backend': TPA_LOGOUT_PROVIDER})
-            end_session_url = self._get_end_session_url(backend)
-            end_session_url = self._add_post_logout_redirect_uri(end_session_url)
-            context['target'] = end_session_url if end_session_url else context['target']
+            if backend:
+                end_session_url = self._get_end_session_url(backend)
+                end_session_url = self._add_post_logout_redirect_uri(end_session_url)
+                context['target'] = end_session_url if end_session_url else context['target']
+            else:
+                log.error(
+                    'Expected backend from TPA_LOGOUT_PROVIDER: %s not found '
+                    'for site %s; defaulting to normal logout behavior',
+                    TPA_LOGOUT_PROVIDER, self.request.site.domain)
         return context
 
     def _get_end_session_url(self, backend):
