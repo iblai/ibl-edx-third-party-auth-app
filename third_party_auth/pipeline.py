@@ -799,4 +799,4 @@ def check_session_management(auth_entry, strategy, details, response, user=None,
 
     session_state = response.get('session_state')
     if session_state is not None:
-        strategy.request.session['session_state'] = response['session_state']
+        strategy.request.session['session_state'] = session_state
