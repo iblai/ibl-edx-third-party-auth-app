@@ -134,18 +134,38 @@ class TPALogoutView(LogoutView):
     """
     def get_context_data(self, **kwargs):
         context = super(TPALogoutView, self).get_context_data(**kwargs)
-        if TPA_LOGOUT_PROVIDER is not None:
-            backend = provider.Registry.get_from_pipeline(
-                {'backend': TPA_LOGOUT_PROVIDER})
-            if backend:
-                end_session_url = self._get_end_session_url(backend)
-                end_session_url = self._add_post_logout_redirect_uri(end_session_url)
-                context['target'] = end_session_url if end_session_url else context['target']
-            else:
-                log.error(
-                    'Expected backend from TPA_LOGOUT_PROVIDER: %s not found '
-                    'for site %s; defaulting to normal logout behavior',
-                    TPA_LOGOUT_PROVIDER, self.request.site.domain)
+        # Default behavior if not logoout provider set
+        if TPA_LOGOUT_PROVIDER is None:
+            return context
+
+        backend = provider.Registry.get_from_pipeline(
+            {'backend': TPA_LOGOUT_PROVIDER})
+
+        # Default behavior if specified backend isn't found
+        if not backend:
+            log.error(
+                'Expected backend from TPA_LOGOUT_PROVIDER: %s not found '
+                'for site %s; defaulting to normal logout behavior',
+                TPA_LOGOUT_PROVIDER, self.request.site.domain)
+            return context
+
+        relogin = self.request.GET.get('relogin')
+
+        # Want to log user out and redirect them to their providers login
+        # This is used when a user's OP session ends via check-session-iframe
+        if relogin is not None:
+            login_url = pipeline.get_login_url(
+                # TODO: Fix the redirect URL to be more appropriate?
+                backend.provider_id,
+                'login',
+                redirect_url=self.request.GET.get('next', '/'))
+            context['target'] = login_url
+            return context
+
+        # Use the end session endpoint as the redirect target
+        end_session_url = self._get_end_session_url(backend)
+        end_session_url = self._add_post_logout_redirect_uri(end_session_url)
+        context['target'] = end_session_url if end_session_url else context['target']
         return context
 
     def _get_end_session_url(self, backend):
@@ -178,3 +198,16 @@ class TPALogoutView(LogoutView):
         query_string = urlencode(redirect_uri)
         end_session_url += '?{}'.format(query_string)
         return end_session_url
+
+
+def check_session_rp_iframe(request):
+    context = {
+        'target_op': 'https://keycloak.cluster-v010.iblstudios.com',
+        'check_session_url': 'https://keycloak.cluster-v010.iblstudios.com/auth/realms/org1/protocol/openid-connect/login-status-iframe.html',
+        'client_id': 'edx',
+        'session_state': request.session.get('session_state'),
+        'should_check': 'true' if request.user.is_authenticated() else 'false',
+        'logout_uri': reverse('logout') + '?relogin=1&next=',
+    }
+    print(context)
+    return render(request, 'third_party_auth/check_session_iframe.html', context)

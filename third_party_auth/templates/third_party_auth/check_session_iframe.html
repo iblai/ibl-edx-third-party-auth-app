@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="ISO-8859-1">
+    <title>RP Iframe</title>
+</head>
+<body onload="javascript:startChecking()">
+    <iframe id="op-iframe" src="{{check_session_url}}" frameborder="0" width="0" height="0"></iframe>
+</body>
+<script>
+    var targetOP = "{{target_op}}";
+    var shouldCheck = {{should_check}};
+
+    window.addEventListener("message", receiveMessage, false);
+
+    function startChecking() {
+        if (shouldCheck) {
+            checkStatus();
+            setInterval('checkStatus()', 1000 * 5); // every 60 seconds
+        }
+    }
+
+    function checkStatus() {
+        var clientId = '{{client_id}}';
+        var sessionState = '{{session_state}}';
+        var data = clientId + ' ' + sessionState;
+        console.log("Posting: " + data);
+        document.getElementById('op-iframe').contentWindow.postMessage(data, targetOP);
+    }
+
+    function receiveMessage(event) {
+        if (event.origin !== targetOP) {
+            // Origin did not come from the OP.
+            console.log("Origin not from OP");
+            return;
+        }
+        if (event.data === 'unchanged') {
+            // User is still logged in to the OP.
+            console.log("Unchanged");
+        } else if (event.data === 'changed') {
+            // Perform re-authentication with prompt=none to obtain the current session state at the OP.
+            console.log("Changed - logging out");
+            var currentUrl = '{{ logout_uri|safe }}' + encodeURIComponent(window.top.location.href);
+            window.top.location.href = currentUrl;
+
+        } else {
+            // Error.
+            console.log('Something goes wrong!');
+        }
+    }
+</script>
+</html>
