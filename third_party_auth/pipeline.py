@@ -794,8 +794,8 @@ def set_id_verification_status(auth_entry, strategy, details, user=None, *args, 
 
 def check_session_management(auth_entry, strategy, details, response, user=None, *args, **kwargs):
     """Store the session_state in the current session if it was returned"""
-    if not getattr(settings, 'ENABLE_OP_SESSION_MANAGEMENT', False):
-        return
+    if not getattr(settings, 'TPA_ENABLE_OP_SESSION_MANAGEMENT', False):
+        return None
 
     session_state = response.get('session_state')
     if session_state is not None:

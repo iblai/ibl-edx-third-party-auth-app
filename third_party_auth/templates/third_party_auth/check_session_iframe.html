@@ -5,24 +5,21 @@
     <title>RP Iframe</title>
 </head>
 <body onload="javascript:startChecking()">
-    <iframe id="op-iframe" src="{{check_session_url}}" frameborder="0" width="0" height="0"></iframe>
+    <iframe id="op-iframe" src="{{ check_session_url }}" frameborder="0" width="0" height="0"></iframe>
 </body>
 <script>
-    var targetOP = "{{target_op}}";
-    var shouldCheck = {{should_check}};
+    var targetOP = "{{ target_op }}";
 
     window.addEventListener("message", receiveMessage, false);
 
     function startChecking() {
-        if (shouldCheck) {
-            checkStatus();
-            setInterval('checkStatus()', 1000 * 5); // every 60 seconds
-        }
+        checkStatus();
+        setInterval('checkStatus()', 1000 * 5); // every 60 seconds
     }
 
     function checkStatus() {
-        var clientId = '{{client_id}}';
-        var sessionState = '{{session_state}}';
+        var clientId = '{{ client_id }}';
+        var sessionState = '{{ session_state }}';
         var data = clientId + ' ' + sessionState;
         console.log("Posting: " + data);
         document.getElementById('op-iframe').contentWindow.postMessage(data, targetOP);

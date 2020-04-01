@@ -9,6 +9,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseServerError
 from django.shortcuts import redirect, render
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
 from social_django.utils import load_strategy, load_backend, psa
 from social_django.views import complete
@@ -200,13 +201,55 @@ class TPALogoutView(LogoutView):
         return end_session_url
 
 
+@xframe_options_exempt
 def check_session_rp_iframe(request):
+    """Renders the RP session iframe
+
+    https://openid.net/specs/openid-connect-session-1_0.html#ChangeNotification
+
+    We only want to render this check if:
+        - user is authenticated
+            - don't want non-logged in user to be forced to login
+        - user has a session_state in their session
+            - this will get populated as part of social auth pipeline if
+              OP session management is enabled. If logged in through normal
+              django means, this value won't be in the session.
+    """
+    if TPA_LOGOUT_PROVIDER is None:
+        log.error("TPA_ENABLE_OP_SESSION_MANAGEMENT is True, but no "
+                  "TPA_LOGOUT_PROVIDER is set")
+        return HttpResponse(status=500)
+
+    # Don't want to do any checking if it's an anon user or the user has no
+    # session_state (means the didn't login through OIDC provider)
+    session_state = request.session.get('session_state')
+    if not request.user.is_authenticated() or session_state is None:
+        log.debug("Not displaying b/c user not auth'd or no session state")
+        return HttpResponse(status=404)
+
+    backend = provider.Registry.get_from_pipeline(
+        {'backend': TPA_LOGOUT_PROVIDER})
+
+    if backend is None:
+        log.error(
+            'Expected backend from TPA_LOGOUT_PROVIDER: %s not found for site %s',
+            TPA_LOGOUT_PROVIDER, request.site.domain)
+        return HttpResponse(status=500)
+
+    # Get required settings from backend
+    try:
+        target_op = backend.get_setting('TARGET_OP')
+        check_session_url = backend.get_setting('CHECK_SESSION_URL')
+        client_id = backend.get_setting('KEY')
+    except KeyError as e:
+        log.error("Missing backend setting: {}".format(e))
+        return HttpResponse(status=500)
+
     context = {
-        'target_op': 'https://keycloak.cluster-v010.iblstudios.com',
-        'check_session_url': 'https://keycloak.cluster-v010.iblstudios.com/auth/realms/org1/protocol/openid-connect/login-status-iframe.html',
-        'client_id': 'edx',
-        'session_state': request.session.get('session_state'),
-        'should_check': 'true' if request.user.is_authenticated() else 'false',
+        'target_op': target_op,
+        'check_session_url': check_session_url,
+        'client_id': client_id,
+        'session_state': session_state,
         'logout_uri': reverse('logout') + '?relogin=1&next=',
     }
     print(context)

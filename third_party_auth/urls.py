@@ -5,7 +5,7 @@ from django.conf.urls import include, url
 
 from .views import (
     inactive_user_view, lti_login_and_complete_view, post_to_custom_auth_form, saml_metadata_view,
-    TPALogoutView, check_session_rp_iframe, admin_url
+    TPALogoutView, check_session_rp_iframe
 )
 
 urlpatterns = [
@@ -14,10 +14,16 @@ urlpatterns = [
     url(r'^auth/saml/metadata.xml', saml_metadata_view),
     url(r'^auth/login/(?P<backend>lti)/$', lti_login_and_complete_view),
     url(r'^auth/', include('social_django.urls', namespace='social')),
-    url(r'^check-session-rp$', check_session_rp_iframe),
 ]
 
 # Override logout view to redirect user to end session endpoint of
 # provider listed in TPA_LOGOUT_PROVIDER
 if getattr(settings, 'TPA_LOGOUT_PROVIDER', None):
     urlpatterns += [url(r'logout', TPALogoutView.as_view(), name='logout')]
+
+# https://openid.net/specs/openid-connect-session-1_0.html#RPiframe
+if getattr(settings, 'TPA_ENABLE_OP_SESSION_MANAGEMENT', False):
+    urlpatterns += [
+        url(r'^check-session-rp$', check_session_rp_iframe,
+            name='tpa-check-session-rp-iframe'),
+    ]
