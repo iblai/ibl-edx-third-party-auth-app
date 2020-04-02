@@ -11,18 +11,18 @@ import ddt
 import pytest
 from django.conf import settings
 from django.test import RequestFactory, TestCase
-from django.test.utils import override_settings
 from lxml import etree
 from onelogin.saml2.errors import OneLogin_Saml2_Error
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
+from crum import CurrentRequestUserMiddleware
 
 from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
-from third_party_auth.views import TPALogoutView
+from third_party_auth.views import TPALogoutView, check_session_rp_iframe
 
 from student.tests.factories import UserFactory
 # Define some XML namespaces:
 from third_party_auth.tasks import SAML_XML_NS
-from third_party_auth.models import OAuth2ProviderConfig
+
 
 from .testutil import AUTH_FEATURE_ENABLED, AUTH_FEATURES_KEY, SAMLTestCase
 
@@ -171,14 +171,22 @@ class BaseLogoutViewTestCase(TestCase, ThirdPartyAuthTestMixin):
     @classmethod
     def setUpClass(cls):
         super(BaseLogoutViewTestCase, cls).setUpClass()
-        site = SiteFactory()
-        cls.user = UserFactory()
+        site = SiteFactory(domain='0.testserver.fake')
         cls.factory = RequestFactory()
         cls.base_request = cls.factory.get('/logout')
         cls.base_request.site = site
 
+        # OAuth2ProviderConfig.enabled_for_current site uses crum and also
+        # users request.get_host(), so need to set SERVER_NAME and use CRUM
+        cls.base_request.META['SERVER_NAME'] = site.domain
+        crm = CurrentRequestUserMiddleware()
+        crm.process_request(cls.base_request)
+
         cls.backend = cls.configure_keycloak_provider(
-            enabled=True, visible=True, other_settings=json.dumps({
+            enabled=True,
+            visible=True,
+            site=site,
+            other_settings=json.dumps({
                 'END_SESSION_URL': 'https://end.session.com/endpoint',
             }))
 
@@ -187,6 +195,7 @@ class BaseLogoutViewTestCase(TestCase, ThirdPartyAuthTestMixin):
         self._caplog = caplog
 
 
+@mock.patch('third_party_auth.provider._PSA_OAUTH2_BACKENDS', ['keycloak'])
 class TestTPALogoutView(BaseLogoutViewTestCase):
     """This class should only be touching the get_context_data function, so
     that is where we will focus our tests
@@ -308,3 +317,30 @@ class TestTPALogoutViewAddPostLogoutRedirectUri(BaseLogoutViewTestCase):
         view.request = self.base_request
         end_session_url = view._add_post_logout_redirect_uri(url)
         assert end_session_url == expected_url
+
+
+@pytest.mark.skip
+class TestCheckSessionRPIframe(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestCheckSessionRPIframe, cls).setUpClass()
+        site = SiteFactory()
+        cls.user = UserFactory()
+        cls.factory = RequestFactory()
+        cls.base_request = cls.factory.get('/logout')
+        cls.base_request.site = site
+        cls.base_request.user = cls.user
+
+        cls.backend = cls.configure_keycloak_provider(
+            enabled=True, visible=True, other_settings=json.dumps({
+                'END_SESSION_URL': 'https://end.session.com/endpoint',
+            }))
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', None)
+    def test_TPA_PROVIDER_is_none_returns_500(self):
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status == 500
