@@ -6,12 +6,11 @@ import mock
 import json
 import unittest
 
-
 import ddt
 import pytest
-from django.urls import reverse
 from django.conf import settings
-from django.test import RequestFactory, TestCase, override_settings
+from django.contrib.auth.models import AnonymousUser
+from django.test import RequestFactory, TestCase
 from lxml import etree
 from onelogin.saml2.errors import OneLogin_Saml2_Error
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
@@ -19,7 +18,6 @@ from crum import CurrentRequestUserMiddleware
 
 from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 from third_party_auth.views import TPALogoutView, check_session_rp_iframe
-from third_party_auth.models import OAuth2ProviderConfig
 
 from student.tests.factories import UserFactory
 # Define some XML namespaces:
@@ -192,6 +190,7 @@ class BaseTestCase(TestCase, ThirdPartyAuthTestMixin):
         cls.backend = cls.configure_keycloak_provider(
             enabled=True,
             visible=True,
+            key='edx',
             site=cls.site,
             other_settings=json.dumps({
                 'END_SESSION_URL': 'https://end.session.com/endpoint',
@@ -336,20 +335,68 @@ class TestTPALogoutViewAddPostLogoutRedirectUri(BaseTestCase):
         assert end_session_url == expected_url
 
 
-@override_settings(TPA_ENABLE_OP_SESSION_MANAGEMENT=True)
 class TestCheckSessionRPIframe(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         super(TestCheckSessionRPIframe, cls).setUpClass()
-        cls._setup_request(reverse('tpa-check-session-rp-iframe'))
+        cls._setup_request('/check-session-rp')
 
     @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', None)
     def test_TPA_PROVIDER_is_none_returns_500(self):
         resp = check_session_rp_iframe(self.base_request)
         assert resp.status_code == 500
+        assert "TPA_ENABLE_OP_SESSION_MANAGEMENT is True" in self._caplog.text
 
-    # @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
-    # def test_TPA_PROVIDER_is_none_returns_500(self):
-    #     conf = OAuth2ProviderConfig.objects.get(site=cls.site)
-    #     resp = check_session_rp_iframe(self.base_request)
-    #     assert resp.status_code == 500
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    def test_non_authd_user_returns_404(self):
+        self.base_request.session = {}
+        self.base_request.user = AnonymousUser()
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 404
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    def test_no_session_state_returns_404(self):
+        self.base_request.session = {}
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 404
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    @mock.patch('third_party_auth.views.provider.Registry.get_from_pipeline')
+    def test_get_from_pipeline_is_none_returns_500(self, mock_from_pipeline):
+        self.base_request.session = {'session_state': 'value'}
+        mock_from_pipeline.return_value = None
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 500
+        assert "Expected backend" in self._caplog.text
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    def test_missing_provider_setting_returns_500(self):
+        self.base_request.session = {'session_state': 'value'}
+
+        # Missing TARGET_OP
+        self.backend.other_settings = json.dumps({
+            'END_SESSION_URL': 'https://end.session.com/endpoint',
+            'CHECK_SESSION_URL': 'https://{}/check-session'.format(self.site.domain),
+        })
+        self.backend.save()
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 500
+        assert "Missing backend setting: 'TARGET_OP'" in self._caplog.text
+        self._caplog.clear()
+
+        # Missing CHECK_SESSION_URL
+        self.backend.other_settings = json.dumps({
+            'END_SESSION_URL': 'https://end.session.com/endpoint',
+            'TARGET_OP': 'https://{}'.format(self.site.domain),
+        })
+        self.backend.save()
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 500
+        assert "Missing backend setting: 'CHECK_SESSION_URL'" in self._caplog.text
+        self._caplog.clear()
+
+    @mock.patch('third_party_auth.views.TPA_LOGOUT_PROVIDER', 'keycloak')
+    def test_all_settings_correct_returns_200(self):
+        self.base_request.session = {'session_state': 'value'}
+        resp = check_session_rp_iframe(self.base_request)
+        assert resp.status_code == 200
