@@ -11,8 +11,10 @@ The following are the major changes made to the edx base application:
 - In `provider.py` we modify the `Registry` class (where necessary) to fetch items based on the `slug`/`backend.name` and the `site.id`
 - In `strategy.py` we fetch items based on the `slug`/`backend.name` and `site.id`
 - Optionally changes the logout behavior to logout of a 'default' backend by redirecting to its `end session url` endpoint
+- In `settings.py`:
+    - Add `store_logout_url` and `check_session_management` to pipeline
 
-The requirement still holds that the `slug` must match the `backend_name` of the `OAuth2ProviderConfig`
+The requirement still holds that the `slug` must match the `backend_name` of the `OAuth2ProviderConfig`. This is automatically done when configuring with the external API.
 
 The original edx implementation exists on the `base-edx-implementation` branch, so a diff can always be done there to see what has changed.
 
@@ -67,7 +69,7 @@ These next steps don't seem to be explicitly required, but they are part of the 
     - Select `Save`
 - Click `Mappers` at the top
 - Click `Add Builtin` in the upper right
-    - Check `email`, `given name`, `family name, `username`
+    - Check `email`, `given name`, `family name, `username` (modify as required, `email`, `username` are required though)
     - Click `Add Selected`
 - On that same `Mappers` tab, click `Create`
     - Set `Name` to `Audience`
@@ -109,10 +111,24 @@ We must first enable third party auth in edx.
 - Become the root `sudo -i`
 - Open `edx-platform/lms/envs/common.py`
 - Set `ENABLE_THIRD_PARTY_AUTH = True` and save
+- In order to share sessions between the LMS and the CMS:
+    - in `lms/cms.envs.json` set the `SESSION_COOKIE_DOMAIN` to the highest level domain shared among all sites
+    - Examples:
+        - CMS: studio-yoursite.domain.com
+        - LMS1: lms1.domain.com
+        - LMS2: lms2.domain.com
+        - Set `SESSION_COOKIE_DOMAIN = '.domain.com'`
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
 - Navigate to `/edx/app/edxapp/edx-platform`
 - Run: `./manage.py lms migrate third_party_auth --settings=production`
 - Restart the lms: `/edx/bin/supervisorctl restart lms cms`
+
+### Session Management Notes
+For the CMS to be able to auto-use the logged in user (share the session), the session cookie domain has to be set to the highest commen domain, as described above.
+
+This does mean that if you login to multiple LMSs (subdomains) in the same browser, the last window to be refreshed will be the current session. It's definitely best not to login to multiple LMS subdomains in the same session. Different browsers and/or incognito/private browsers are the best way to accomplish this.
+
+**Note:** The [API](#api) used to setup SSO backends will automatically set the `SESSION_COOKIE_DOMAIN` to the value found in `lms/envs/common.py`, if set.
 
 ### OAuth2 Setup
 In order to use the OAuth2 Provider Configuration API endpoints, we must create an `OAuth2` client for that user and the requesting application.
@@ -138,20 +154,25 @@ See [here](https://openid.net/specs/openid-connect-session-1_0.html#RedirectionA
     - Default: `None`
     - If set to a backend name, it will retrieve that provider for the current site and then attempt to redirect to the value in that providers `other_settings['END_SESSION_URL']` endpoint after performing normal logout
 
-If there is no `END_SESSINO_URL` entry on the provider, default logout behavior will be performd.
+If there is no `END_SESSION_URL` entry on the provider, default logout behavior will be performed.
 
 These values are only relevant if `TPA_LOGOUT_PROVIDER` is set to a backend name. These settings will control a query string that can be appended to the end session url and provide a redirect after loggout out of the OP.
 
 Query string format: `<TPA_POST_LOGOUT_REDIRECT_FIELD>=<TPA_POST_LOGOUT_REDIRECT_URL>`
 
-- `TPA_POST_LOGOUT_REDIRECT_FIELD` = 'redirect_uri`
+- `TPA_POST_LOGOUT_REDIRECT_FIELD` = 'redirect_uri'`
     - Query string field name for post logout redirect from OP
     - Default: `redirect_uri`
-- `TPA_POST_LOGOUT_REDIRECT_URL` = 'https://your.domain.com'
+- `TPA_POST_LOGOUT_REDIRECT_URL = 'https://your.domain.com'`
     - Url for post logout redirect from OP
     - Default: `current_site`
     - If set to `None`, then no redirect URI query string will be added to the end session endpoint
 
+- `TPA_ENABLE_OP_SESSION_MANAGEMENT = True/False`
+    - If enabled, adds the check session iframe _to the LMS only_
+        - *Not currently enabled for the CMS as there are some cross origin challenges to work through*
+    - This will log the user out of edx if their session status changes on the OP.
+    - This will occur for users who have logged in after the setting is enabled.
 
 ## API
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
