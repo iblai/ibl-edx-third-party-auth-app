@@ -1,6 +1,8 @@
 """
 Tests for the Third Party Auth REST API
 """
+import copy
+import json
 import unittest
 
 import ddt
@@ -12,14 +14,17 @@ from django.urls import reverse
 from mock import patch
 from provider.constants import CONFIDENTIAL
 from provider.oauth2.models import Client, AccessToken
+from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermission
 from rest_framework.test import APITestCase
 from social_django.models import UserSocialAuth
 
 from student.tests.factories import UserFactory
 from third_party_auth.api.permissions import ThirdPartyAuthProviderApiPermission
-from third_party_auth.models import ProviderApiPermissions
+from third_party_auth.models import ProviderApiPermissions, OAuth2ProviderConfig
 from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
+
+import pytest
 
 
 VALID_API_KEY = "i am a key"
@@ -95,7 +100,7 @@ class UserViewsMixin(object):
             return []
         return [
             {
-                "provider_id": "oa2-google-oauth2",
+                "provider_id": "oa2-google-oauth2-1",
                 "name": "Google",
                 "remote_id": "{}@gmail.com".format(username),
             },
@@ -351,3 +356,217 @@ class UserMappingViewAPITests(TpaAPITestCase):
             for item in ['results', 'count', 'num_pages']:
                 self.assertIn(item, response.data)
             self.assertItemsEqual(response.data['results'], expect_result)
+
+
+class TestOAuth2ProviderViewset(ThirdPartyAuthTestMixin, APITestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestOAuth2ProviderViewset, cls).setUpClass()
+        cls.non_admin_user = UserFactory()
+        cls.admin_user = UserFactory(is_superuser=True)
+
+    def _get_url(self, name, backend='keycloak', pk=None):
+        """Return the URL for the given viewset name"""
+        if name == 'list' or name == 'create':
+            return reverse('third_party_auth_oauth_providers-list',
+                           kwargs={'backend': backend})
+        if name == 'detail' or name == 'delete' or name == 'update':
+            return reverse('third_party_auth_oauth_providers-detail',
+                           kwargs={'pk': pk, 'backend': backend})
+
+    def test_missing_auth_token_fails(self):
+        """401 returned for all endpoints if no OAuth info provided"""
+        # GET list
+        resp = self.client.get(self._get_url('list'))
+        assert resp.status_code == 401
+
+        resp = self.client.get(self._get_url('detail', pk=1))
+        assert resp.status_code == 401
+
+        resp = self.client.post(self._get_url('list'), data={})
+        assert resp.status_code == 401
+
+    @pytest.mark.skip("Figure out how to test non-admin-fails")
+    def test_non_admin_access_fails(self):
+        """Providers for specified backend are only ones returned"""
+        self.client.force_authenticate(user=self.non_admin_user)
+        resp = self.client.get(self._get_url('list'))
+        assert resp.status_code == 401
+
+    def test_only_providers_for_specified_backend_returned(self):
+        """Providers for specified backend are only ones returned"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Google and keycloak provider exist
+        self.configure_google_provider()
+        self.configure_keycloak_provider()
+
+        # One item returned for google-oauth2
+        resp = self.client.get(self._get_url('list', backend='google-oauth2'))
+        assert len(resp.json()) == 1
+
+        # One item returned for keycloak
+        resp = self.client.get(self._get_url('list'))
+        assert len(resp.json()) == 1
+
+        # No items returned for a backend that has no entries
+        resp = self.client.get(self._get_url('list', backend='facebook'))
+        assert len(resp.json()) == 0
+
+    def test_delete_not_supported(self):
+        """Attempt to DELETE pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.delete(self._get_url('delete', pk=provider.id))
+        assert resp.status_code == 405
+
+    def test_put_not_supported(self):
+        """Attempt to PUT to pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.put(self._get_url('update', pk=provider.id))
+        assert resp.status_code == 405
+
+    def test_patch_not_supported(self):
+        """Attempt to PATCH to pk returns 405 not supported"""
+        self.client.force_authenticate(user=self.admin_user)
+        provider = self.configure_keycloak_provider()
+        resp = self.client.patch(self._get_url('update', pk=provider.id))
+        assert resp.status_code == 405
+
+    def test_detail_endpoint_returns_proper_contents(self):
+        """Test detail returns proper contents"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        other_settings = {
+            u'PUBLIC_KEY': u'some-public-key',
+            u'AUTHORIZATION_URL': u'https://auth.url.com',
+            u'ACCESS_TOKEN_URL': u'https://access.token.url.com'
+        }
+
+        provider_args = {
+            'name': 'Org 1',
+            'key': 'edx',
+            'other_settings': json.dumps(other_settings),
+            'enabled': True,
+            'changed_by': self.admin_user,
+            'change_date': '2019-01-01T10:00:00.000000Z'
+        }
+        provider = self.configure_keycloak_provider(**provider_args)
+
+        expected = {
+            'id': 1,
+            'name': 'Org 1',
+            'client_id': 'edx',
+            'secret': 'opensesame',
+            'changed_by': self.admin_user.username,
+            'other_settings': other_settings,
+            'enabled': True,
+            'site': 'example.com'
+        }
+        resp = self.client.get(self._get_url('detail', pk=provider.id))
+        resp_data = resp.json()
+        assert 'change_date' in resp_data
+        # auto set to when it was updated so can't really check exact value
+        resp_data.pop('change_date')
+        assert resp_data == expected
+
+    def test_detail_returns_404_if_wrong_backend_specified(self):
+        """Detail returns 404 if pk is not for value in specified backend"""
+        self.client.force_authenticate(user=self.admin_user)
+        kc = self.configure_keycloak_provider()
+        google = self.configure_google_provider()
+
+        # using keycloak backend but specififying pk of google returns 404
+        resp = self.client.get(self._get_url(
+            'detail', backend='keycloak', pk=google.id))
+        assert resp.status_code == 404
+
+        # using keycloack backend and specifying pk of keycloak returns 200
+        resp = self.client.get(self._get_url(
+            'detail', backend='keycloak', pk=kc.id))
+        assert resp.status_code == 200
+
+    def test_post_creates_new_config_for_new_site(self):
+        """POST creates new entry for same backend but different site"""
+        self.client.force_authenticate(user=self.admin_user)
+        new_site = SiteFactory()
+
+        # Starts with only one provider in current set after creating one
+        provider = self.configure_keycloak_provider()
+        assert OAuth2ProviderConfig.objects.current_set().count() == 1
+
+        other_settings = {
+            u'PUBLIC_KEY': u'some-public-key',
+            u'AUTHORIZATION_URL': u'https://auth.url.com',
+            u'ACCESS_TOKEN_URL': u'https://access.token.url.com'
+        }
+        payload = {
+            'name': 'Org 1',
+            'client_id': 'edx',
+            'secret': 'new-secret',
+            'other_settings': other_settings,
+            'enabled': True,
+            'site': new_site.domain,
+        }
+
+        resp = self.client.post(self._get_url('list'), data=payload, format='json')
+
+        expected = copy.deepcopy(payload)
+        expected['changed_by'] = self.admin_user.username
+        expected['id'] = 2
+
+        data = resp.json()
+        # Change date automatically updated, check for presence only
+        assert 'change_date' in data
+        data.pop('change_date')
+
+        assert data == expected
+
+        # Should now be 2 entries in current set, one for each site
+        configs = OAuth2ProviderConfig.objects.current_set()
+        assert configs.count() == 2
+        assert configs.filter(site=new_site, backend_name='keycloak').count() == 1
+        assert configs.filter(site=provider.site, backend_name='keycloak').count() == 1
+
+    def test_post_replaces_current_config_for_same_backend_and_site(self):
+        """POST creates new config that becomes current for same backend/site"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Starts with only one provider in current set after creating one
+        provider = self.configure_keycloak_provider()
+        assert OAuth2ProviderConfig.objects.current_set().count() == 1
+
+        other_settings = {
+            u'PUBLIC_KEY': u'some-public-key',
+            u'AUTHORIZATION_URL': u'https://auth.url.com',
+            u'ACCESS_TOKEN_URL': u'https://access.token.url.com'
+        }
+        payload = {
+            'name': 'New Name',
+            'client_id': 'edx',
+            'secret': 'new-secret',
+            'other_settings': other_settings,
+            'enabled': False,
+            'site': provider.site.domain
+        }
+
+        resp = self.client.post(self._get_url('list'), data=payload, format='json')
+
+        expected = copy.deepcopy(payload)
+        expected['changed_by'] = self.admin_user.username
+        expected['id'] = 2
+
+        data = resp.json()
+        # Change date automatically updated, check for presence only
+        assert 'change_date' in data
+        data.pop('change_date')
+
+        assert data == expected
+
+        # Will still only be 1 config in current_set
+        configs = OAuth2ProviderConfig.objects.current_set()
+        assert configs.count() == 1
+
+        # and it will be the one returned by our POST
+        assert configs[0].id == 2
