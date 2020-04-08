@@ -2,7 +2,9 @@
 
 import json
 
+from django.conf import settings
 from django.contrib.sites.models import Site
+from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from rest_framework import serializers
 from third_party_auth.models import OAuth2ProviderConfig, _PSA_OAUTH2_BACKENDS
 
@@ -70,7 +72,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
                 'Missing required fields in other_settings: {}'.format(
                     ', '.join(missing)
                 )
-        )
+            )
         return value
 
     def validate_backend_name(self, value):
@@ -105,7 +107,23 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         # Ensure item is saved as proper json string in other_settings text field
         # edx relies on `clean` to do this normally but only called in admin
         data['other_settings'] = json.dumps(data['other_settings'])
+
+        # Update the session cookie domain for the site to be the same as the
+        # LMS SESSION_COOKIE_DOMAIN
+        self._update_site_session_cookie_domain(data['site'])
         return self.Meta.model.objects.create(**data)
+
+    def _update_site_session_cookie_domain(self, site):
+        """Update the site SESSION_COOKIE_DOMAIN to match LMS value
+
+        This is required to share session with CMS. Ideally would get from
+        CMS settings, but LMS/CMS should match anyway (and CMS not available here)
+        """
+        config = SiteConfiguration.objects.get(site=site)
+        domain = getattr(settings, 'SESSION_COOKIE_DOMAIN')
+        if domain:
+            config['SESSION_COOKIE_DOMAIN'] = domain
+            config.save()
 
     def to_representation(self, instance):
         """Make sure other_settings is always JSON
