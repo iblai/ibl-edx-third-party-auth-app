@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def package_data(pkg, roots):
@@ -23,8 +23,6 @@ setup(
     version='1.0.0',
     description='EdX Third Parth Auth package with IBL specific modifications',
     license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
-    packages=[
-        'third_party_auth',
-    ],
+    packages=find_packages(),
     # package_data=package_data("third_party_auth", []),
 )

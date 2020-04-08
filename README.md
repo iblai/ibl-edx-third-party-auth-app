@@ -126,6 +126,7 @@ We must first enable third party auth in edx.
         - LMS2: lms2.yoursite.domain.com
         - Set `SESSION_COOKIE_DOMAIN = '.yoursite.domain.com'`
         - **NOTE:** This is a bit better since it your should more specific to your application only.
+- in `lms.env.json`, set all the fields under `REGISTRATION_EXTRA_FIELDS` to `hidden`
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
 - Navigate to `/edx/app/edxapp/edx-platform`
 - Run: `./manage.py lms migrate third_party_auth --settings=production`
