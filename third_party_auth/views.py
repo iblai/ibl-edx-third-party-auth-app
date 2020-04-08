@@ -252,5 +252,4 @@ def check_session_rp_iframe(request):
         'session_state': session_state,
         'logout_uri': reverse('logout') + '?relogin=1&next=',
     }
-    print(context)
     return render(request, 'third_party_auth/check_session_iframe.html', context)

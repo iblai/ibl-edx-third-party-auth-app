@@ -5,7 +5,7 @@ from django.conf.urls import include, url
 
 from .views import (
     inactive_user_view, lti_login_and_complete_view, post_to_custom_auth_form, saml_metadata_view,
-    TPALogoutView, check_session_rp_iframe
+    TPALogoutView
 )
 
 urlpatterns = [
@@ -24,6 +24,5 @@ if getattr(settings, 'TPA_LOGOUT_PROVIDER', None):
 # https://openid.net/specs/openid-connect-session-1_0.html#RPiframe
 if getattr(settings, 'TPA_ENABLE_OP_SESSION_MANAGEMENT', False):
     urlpatterns += [
-        url(r'^check-session-rp$', check_session_rp_iframe,
-            name='tpa-check-session-rp-iframe'),
+        url(r'^auth/', include('third_party_auth.session_urls'))
     ]
