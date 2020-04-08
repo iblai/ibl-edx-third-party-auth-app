@@ -101,7 +101,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         data['skip_hinted_login_dialog'] = False
         data['skip_registration_form'] = True
         data['slug'] = backend_name
-        data['sync_learner_profile_data'] = True
+        data['sync_learner_profile_data'] = False
         data['visible'] = True
 
         # Ensure item is saved as proper json string in other_settings text field
