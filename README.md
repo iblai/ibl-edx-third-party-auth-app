@@ -134,7 +134,7 @@ We must first enable third party auth in edx.
 ### Session Management Notes
 For the CMS to be able to auto-use the logged in user (share the session), the session cookie domain has to be set to the most specific subdomain domain shared by all services, as described above.
 
-This does mean that if you login to multiple LMSs (subdomains) in the same browser, the last window to be refreshed will be the current session. It's definitely best not to login to multiple LMS subdomains in the same session. Different browsers and/or incognito/private browsers are the best way to accomplish this.
+**This does mean that if you login to multiple LMSs (subdomains) in the same browser, the last window to be refreshed will be the current session. It's definitely best not to login to multiple LMS subdomains in the same session. Different browsers and/or incognito/private browsers are the best way to accomplish this.**
 
 **Note:** The [API](#api) used to setup SSO backends will automatically set the `SESSION_COOKIE_DOMAIN` to the value found in `lms/envs/common.py`, if set.
 

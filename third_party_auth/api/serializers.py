@@ -122,7 +122,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         config = SiteConfiguration.objects.get(site=site)
         domain = getattr(settings, 'SESSION_COOKIE_DOMAIN')
         if domain:
-            config['SESSION_COOKIE_DOMAIN'] = domain
+            config.values['SESSION_COOKIE_DOMAIN'] = domain
             config.save()
 
     def to_representation(self, instance):
