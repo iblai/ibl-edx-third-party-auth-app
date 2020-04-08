@@ -115,20 +115,41 @@ We must first enable third party auth in edx.
     - in `lms/cms.envs.json` set the `SESSION_COOKIE_DOMAIN` to the highest level domain shared among all sites
     - Examples:
         - CMS: studio-yoursite.domain.com
-        - LMS1: lms1.domain.com
-        - LMS2: lms2.domain.com
+        - LMS1: lms1.yoursite.domain.com
+        - LMS2: lms2.yoursite.domain.com
         - Set `SESSION_COOKIE_DOMAIN = '.domain.com'`
+        - **NOTE:** this could be dangerous!! what about other sites you're running that have `.domain.com`? You'll be sending this cookie to them, too ...
+        - [Relevant Security Info](https://www.acunetix.com/blog/articles/why-scoping-cookies-to-parent-domains-is-a-bad-idea/)
+    - A better solution:
+        - CMS: studio.yoursite.domain.com
+        - LMS1: lms1.yoursite.domain.com
+        - LMS2: lms2.yoursite.domain.com
+        - Set `SESSION_COOKIE_DOMAIN = '.yoursite.domain.com'`
+        - **NOTE:** This is a bit better since it your should more specific to your application only.
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
 - Navigate to `/edx/app/edxapp/edx-platform`
 - Run: `./manage.py lms migrate third_party_auth --settings=production`
 - Restart the lms: `/edx/bin/supervisorctl restart lms cms`
 
 ### Session Management Notes
-For the CMS to be able to auto-use the logged in user (share the session), the session cookie domain has to be set to the highest commen domain, as described above.
+For the CMS to be able to auto-use the logged in user (share the session), the session cookie domain has to be set to the most specific subdomain domain shared by all services, as described above.
 
 This does mean that if you login to multiple LMSs (subdomains) in the same browser, the last window to be refreshed will be the current session. It's definitely best not to login to multiple LMS subdomains in the same session. Different browsers and/or incognito/private browsers are the best way to accomplish this.
 
 **Note:** The [API](#api) used to setup SSO backends will automatically set the `SESSION_COOKIE_DOMAIN` to the value found in `lms/envs/common.py`, if set.
+
+### CMS Template Update
+**Note:** This requires the [cms theming engine](https://gitlab.com/iblstudios/iblx-cms/) to be installed.
+
+In order for the CMS to log the user out of the correct subdomain, it must know which domain to redirect the user to for logout. This value is stored in a session variable: `logout_url`.
+
+In order to put that into the `Sign Out` linke, we need to perform the following:
+- copy `third_party_auth/templates/third_party_auth/header.html` to `/edx/app/edxapp/edx-platform/themes/iblx/cms/templates/`
+- copy `third_party_auth/templates/third_party_auth/user_dropdown.html` to `/edx/app/edxapp/edx-platform/themes/iblx/cms/templates/`
+
+Do this as the `edxapp` user or make sure to `chown` the files to `edxapp:edxapp` once moved.
+
+**NOTE:** We should probably find a more robust way to do this in the future.
 
 ### OAuth2 Setup
 In order to use the OAuth2 Provider Configuration API endpoints, we must create an `OAuth2` client for that user and the requesting application.
