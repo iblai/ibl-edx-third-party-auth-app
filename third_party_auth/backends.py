@@ -63,7 +63,7 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
     """
 
     name = 'keycloak'
-    ID_KEY = 'email'
+    ID_KEY = 'username'
     ACCESS_TOKEN_METHOD = 'POST'
 
     def authorization_url(self):
