@@ -50,26 +50,23 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - Hover over the realm name in the upper left and select `Add Realm`
 - Give the realm a name **without spaces** and select `Create`
 
-These next steps don't seem to be explicitly required, but they are part of the keycloak tutorial:
-- Select `Roles` on the left
-- Click `Add Role` in the upper right
-- enter `user` as the name, and save
-
 ### Creating a New edX client
 - With your realm active, select `Clients` on the left
 - Click `Create` in the upper right
 - enter the `Client ID` - can be `edx` for simplicity
 - click `Save`
 - Change `Access Type` to `confidential`
-- Enter `https://edx.subdomain.com/auth/complete/keycloak/*` in the `Valid Redirect URI's` field
-    - `edx.subdomain.com` corresponds to which edx subdomain this realm will be associated with
+- In the `Valid redirect URIs` field, enter:
+    - `https://edx.subdomain.com/auth/complete/keycloak/*`
+    - `https://edx.subdomain.com`
+- In `Web Origins` add `+` (literally, just a `+` symbol)
 - Expand `Fine Grain OpenID Connect Configuration`
     - Change `User Info Signed Response Algorithm` to `RS256`
     - Change `Request Object Signature Algorithm` to `RS256`
     - Select `Save`
 - Click `Mappers` at the top
 - Click `Add Builtin` in the upper right
-    - Check `email`, `given name`, `family name, `username` (modify as required, `email`, `username` are required though)
+    - Check `email`, `username` (modify as required, `email`, `username` are required though)
     - Click `Add Selected`
 - On that same `Mappers` tab, click `Create`
     - Set `Name` to `Audience`
@@ -81,7 +78,6 @@ These next steps don't seem to be explicitly required, but they are part of the 
 To create new users in KeyCloak:
 - Select `Users` on the left
 - Fill out the appropriate information - specifically username and email at a minimum
-- Optionally check `Email Verified` if you don't want to require the user to verify their email
 - Save the user
 
 ### Finding Links and Information
@@ -106,11 +102,11 @@ You will need various information in edx from the keycloak realm. First make sur
     - Click the `Public Key` button next to the RSA key and it will display the public key for the current realm
 
 ## EdX Setup
-We must first enable third party auth in edx.
-
 - Become the root `sudo -i`
 - Open `edx-platform/lms/envs/common.py`
-- Set `ENABLE_THIRD_PARTY_AUTH = True` and save
+    - Set `ENABLE_THIRD_PARTY_AUTH = True` and save
+    - Add `'third_party_auth.backends.KeycloakOAuth2'` to `AUTHENTICATION_BACKENDS`
+- **NOTE:** session part is subject to change here ...
 - In order to share sessions between the LMS and the CMS:
     - in `lms/cms.envs.json` set the `SESSION_COOKIE_DOMAIN` to the highest level domain shared among all sites
     - Examples:
@@ -209,31 +205,22 @@ Example Response:
 ```json
 [
     {
-        "id": 99,
-        "changed_by": "geoff-va",
+        "id": 1,
+        "changed_by": "manager",
         "client_id": "edx",
         "enabled": true,
         "other_settings": {
-            "AUTHORIZATION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/auth",
-            "PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq2cfbbhEmoHq/aZmuZD4COCzr+rNSzyS9t5Z4O804dWSPmcicJ0p9KPjW7WHW27+MMi9EJ7sAHaoRRnNMEw5ngD+Ap0T4Qf/KUyjQtExhmlVQDIATqEUgZdKYsfTJtJ1nP5jOJFmItKrGjMlHcLgtbPdCNnz/MU0mIevPhnYUGu0lEY0uEyTjuy2WEJw/i/HIf+UzNZXZZ/gED7h37gxDdwfsxP+G+FS5H17JICcTtmkjdx0S2BEj/Re12U/C8iu6Xm1OxHGTokQw2WwlLYodDO4Mnz+H02U0qsHX8l3IW22EPycP3NSzfSvuNatCPxjtninI0TpOfH+HRKFERYAPQIDAQAB",
-            "ACCESS_TOKEN_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/token",
-            "END_SESSION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/logout"
+            "PUBLIC_KEY": "auth server public key",
+            "CHECK_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/login-status-iframe.html",
+            "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
+            "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
+            "TARGET_OP": "https://your.keycloak.com",
+            "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
         },
-        "secret": "487faaa7-13c1-48f5-8280-96a453fae8b7",
-        "site": "cluster-v023.iblstudios.com",
-        "change_date": "2020-03-23T16:57:42.137570Z",
-        "name": "Updated Org 3"
-    },
-    {
-        "id": 68,
-        "changed_by": null,
-        "client_id": "",
-        "enabled": false,
-        "other_settings": {},
-        "secret": "",
-        "site": "org1.cluster-v023.iblstudios.com",
-        "change_date": "2020-03-19T20:36:02.695510Z",
-        "name": "Updated Org1"
+        "secret": "some-secret-value",
+        "site": "your.domain.com",
+        "change_date": "2020-04-09T17:13:13.319589Z",
+        "name": "Your Org"
     }
 ]
 ```
@@ -244,48 +231,64 @@ Example Response:
 Example Response:
 ```json
 {
-    "id": 99,
-    "changed_by": "geoff-va",
+    "id": 1,
+    "changed_by": "manager",
     "client_id": "edx",
     "enabled": true,
     "other_settings": {
-        "AUTHORIZATION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/auth",
-        "PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq2cfbbhEmoHq/aZmuZD4COCzr+rNSzyS9t5Z4O804dWSPmcicJ0p9KPjW7WHW27+MMi9EJ7sAHaoRRnNMEw5ngD+Ap0T4Qf/KUyjQtExhmlVQDIATqEUgZdKYsfTJtJ1nP5jOJFmItKrGjMlHcLgtbPdCNnz/MU0mIevPhnYUGu0lEY0uEyTjuy2WEJw/i/HIf+UzNZXZZ/gED7h37gxDdwfsxP+G+FS5H17JICcTtmkjdx0S2BEj/Re12U/C8iu6Xm1OxHGTokQw2WwlLYodDO4Mnz+H02U0qsHX8l3IW22EPycP3NSzfSvuNatCPxjtninI0TpOfH+HRKFERYAPQIDAQAB",
-        "ACCESS_TOKEN_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/token",
-        "END_SESSION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/logout"
-        },
+        "PUBLIC_KEY": "auth server public key",
+        "CHECK_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/login-status-iframe.html",
+        "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
+        "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
+        "TARGET_OP": "https://your.keycloak.com",
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
     },
-    "secret": "487faaa7-13c1-48f5-8280-96a453fae8b7",
-    "site": "cluster-v023.iblstudios.com",
-    "change_date": "2020-03-23T16:57:42.137570Z",
-    "name": "Updated Org 3"
+    "secret": "some-secret-value",
+    "site": "your.domain.com",
+    "change_date": "2020-04-09T17:13:13.319589Z",
+    "name": "Your Org"
 }
 ```
 
-- **POST:** `/api/third_party_auth/v0/oauth-providers/{backend_name}`
+- **POST:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/`
     - Create a new configuration for a given backend and site
         - **NOTE:** The `Site` must already exist on edx in order to create a configuration for it
     - The `OAuth2ProviderConfig` subclasses `ConfigurationModel` which means you can't actually _update_ or _delete_ a given configuration. You can only create new configurations which will override old ones
     - In this case, there can only be **one** active configuration for each `('slug', 'site_id')`, so when you create a new configuration if one exists for the given `slug` and `site_id`, the one you create will become the new active configuration
         - **NOTE:** `slug` is the same as the `backend_name` since they must be the same, eg: `keycloak` or `google-oauth2`, `facebook`, etc.
-    - The payload should look something like the following:
+    - The payload must be `application/json` formatted as follows:
 
 ```json
 {
-    "name": "Config Name",
+    "name": "Org Display Name",
     "enabled": true,
-    "client_id": "edx",
-    "secret": "487faaa7-13c1-48f5-8280-96a453fae8b7",
+    "client_id": "your client id",
+    "secret": "your client credentials secret",
     "other_settings": {
-        "PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq2cfbbhEmoHq/aZmuZD4COCzr+rNSzyS9t5Z4O804dWSPmcicJ0p9KPjW7WHW27+MMi9EJ7sAHaoRRnNMEw5ngD+Ap0T4Qf/KUyjQtExhmlVQDIATqEUgZdKYsfTJtJ1nP5jOJFmItKrGjMlHcLgtbPdCNnz/MU0mIevPhnYUGu0lEY0uEyTjuy2WEJw/i/HIf+UzNZXZZ/gED7h37gxDdwfsxP+G+FS5H17JICcTtmkjdx0S2BEj/Re12U/C8iu6Xm1OxHGTokQw2WwlLYodDO4Mnz+H02U0qsHX8l3IW22EPycP3NSzfSvuNatCPxjtninI0TpOfH+HRKFERYAPQIDAQAB",
-        "AUTHORIZATION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/auth",
-        "ACCESS_TOKEN_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/token",
-        "END_SESSION_URL": "https://keycloak.cluster-v010.iblstudios.com/auth/realms/org2/protocol/openid-connect/logout"
+        "PUBLIC_KEY": "auth-servers public key (no begin/end clauses, just key string)",
+        "AUTHORIZATION_URL": "https://your.auth.server.com/its-auth-endpoint",
+        "ACCESS_TOKEN_URL": "https://your.auth.server.com/its-access-token-endpoint",
+        "END_SESSION_URL": "https://your.auth.server.com/its-end-session-endpoint",
+        "TARGET_OP": "https://your.auth.server.com",
+        "CHECK_SESSION_URL": "https://devauth.netacad.com/auth/realms/Citizenschool/protocol/openid-connect/login-status-iframe.html"
 
     },
-    "site": "cluster-v023.iblstudios.com"
+    "site": "your.edx.subdomain.com"
 }
 ```
+
+Parameter definitons are as follows:
+- `name`: A display name used in the django admin. Can just be the org name
+- `enabled`: Whether or not to enable this SSO configuration for the site
+- `client_id`: your OAuth2 client id
+- `secret`: your OAuth2 secret
+- `site`: the domain of the site this configuration applies to
+- `PUBLIC_KEY`: the public key of the OP
+- `AUTHORIZATION_URL`: auth url of OP
+- `ACCESS_TOKEN_URL`: token url of OP
+- `END_SESSION_URL`: the end session url of OP
+- `TARGET_OP`: https://your.auth.server.com (protocol + auth server domain)
+- `CHECK_SESSION_URL`: check session endpoint of OP. Allows RP to direct an iframe to this endpoint to check session status at the OP
 
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 
