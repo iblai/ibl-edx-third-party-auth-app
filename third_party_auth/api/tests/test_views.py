@@ -603,7 +603,7 @@ class TestOAuth2ProviderViewset(ThirdPartyAuthTestMixin, APITestCase):
         assert cms_site_conf.values['SESSION_COOKIE_DOMAIN'] == cookie_domain
 
     def test_cms_site_must_be_subdomain_of_site(self):
-        """Raises validation error if cms site not subdomain of site"""
+        """Returns 400 if cms_site not subdomain of """
         self.client.force_authenticate(user=self.admin_user)
         new_site = SiteFactory()
         cms_site = SiteFactory(domain='some.other.domain.com')
@@ -633,3 +633,35 @@ class TestOAuth2ProviderViewset(ThirdPartyAuthTestMixin, APITestCase):
 
         resp = self.client.post(self._get_url('list'), data=payload, format='json')
         assert resp.status_code == 400
+        assert 'cms_site must be a subdomain of site' in resp.json()[0]
+
+    def test_cms_site_doesnt_exist_returns_400(self):
+        """Returns 400 if CMS_SITE does not exist"""
+        self.client.force_authenticate(user=self.admin_user)
+        new_site = SiteFactory()
+        new_site_conf = SiteConfigurationFactory(site=new_site, values={})
+
+        # Starts with only one provider in current set after creating one
+        provider = self.configure_keycloak_provider(site=new_site)
+        assert OAuth2ProviderConfig.objects.current_set().count() == 1
+
+        other_settings = {
+            u'PUBLIC_KEY': u'some-public-key',
+            u'AUTHORIZATION_URL': u'https://auth.url.com',
+            u'ACCESS_TOKEN_URL': u'https://access.token.url.com',
+            u'END_SESSION_URL': u'https://end.session.url.com',
+            u'TARGET_OP': u'https://some.op.com',
+            u'CMS_SITE': 'studio.' + new_site.domain,
+        }
+        payload = {
+            'name': 'New Name',
+            'client_id': 'edx',
+            'secret': 'new-secret',
+            'other_settings': other_settings,
+            'enabled': False,
+            'site': provider.site.domain
+        }
+
+        resp = self.client.post(self._get_url('list'), data=payload, format='json')
+        assert resp.status_code == 400
+        assert 'cms_site with domain' in resp.json()[0]

@@ -82,6 +82,7 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         return value
 
     def validate_cms_site(self, value):
+        """Raise Validation Error if cms_site doesn't exist"""
         try:
             return Site.objects.get(domain=value)
         except Site.DoesNotExist:
