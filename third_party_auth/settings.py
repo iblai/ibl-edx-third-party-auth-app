@@ -68,7 +68,6 @@ def apply_settings(django_settings):
     insert_enterprise_pipeline_elements(django_settings.SOCIAL_AUTH_PIPELINE)
 
     # Required so that we can use unmodified PSA OAuth2 backends:
-    # django_settings.SOCIAL_AUTH_STRATEGY = 'third_party_auth.strategy.ConfigurationModelStrategy'
     django_settings.SOCIAL_AUTH_STRATEGY = 'third_party_auth.strategy.ConfigurationModelStrategy'
 
     # We let the user specify their email address during signup.

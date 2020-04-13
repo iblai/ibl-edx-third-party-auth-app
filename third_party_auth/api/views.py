@@ -428,7 +428,8 @@ class OAuthProvidersViewset(CreateReadListViewset):
             'AUTHORIZATION_URL',
             'ACCESS_TOKEN_URL',
             'PUBLIC_KEY',
-            'END_SESSION_URL'
+            'END_SESSION_URL',
+            'CMS_SITE',
         ]
         return context
 

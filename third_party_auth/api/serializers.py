@@ -2,7 +2,6 @@
 
 import json
 
-from django.conf import settings
 from django.contrib.sites.models import Site
 from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
 from rest_framework import serializers
@@ -82,10 +81,33 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
                 '{} is not a valid backend'.format(value))
         return value
 
+    def validate_cms_site(self, value):
+        try:
+            return Site.objects.get(domain=value)
+        except Site.DoesNotExist:
+            raise serializers.ValidationError(
+                "cms_site with domain {} does not exist".format(value))
+
+    def validate_cms_subdomain(self, lms_site, cms_site):
+        """Raise ValidationError if CMS is not a subdomain of the LMS"""
+        lms_domain = lms_site.domain
+        cms_domain = cms_site.domain
+        lms = '.' + lms_domain
+        if not cms_domain.endswith(lms):
+            raise serializers.ValidationError(
+                "cms_site must be a subdomain of site. "
+                "site: {} :: cms_site: {}".format(lms_domain, cms_domain)
+            )
+
     def create(self, data):
         """Save Create instance with specified defaults for excluded fields"""
+
         backend_name = self.context['view'].kwargs['backend']
         self.validate_backend_name(backend_name)
+
+        cms_site = data['other_settings'].get('CMS_SITE')
+        cms_site = self.validate_cms_site(cms_site)
+        self.validate_cms_subdomain(data['site'], cms_site)
 
         # Requires sensible defaults
         data['backend_name'] = backend_name
@@ -108,22 +130,19 @@ class OAuthProviderSerializer(serializers.ModelSerializer):
         # edx relies on `clean` to do this normally but only called in admin
         data['other_settings'] = json.dumps(data['other_settings'])
 
-        # Update the session cookie domain for the site to be the same as the
-        # LMS SESSION_COOKIE_DOMAIN
-        self._update_site_session_cookie_domain(data['site'])
+        # Update session cookie domain for lms and cms - they should match
+        cookie_domain = '.' + data['site'].domain
+
+        self._update_cookie_domain_for_site(data['site'], cookie_domain)
+        self._update_cookie_domain_for_site(cms_site, cookie_domain)
+
         return self.Meta.model.objects.create(**data)
 
-    def _update_site_session_cookie_domain(self, site):
-        """Update the site SESSION_COOKIE_DOMAIN to match LMS value
-
-        This is required to share session with CMS. Ideally would get from
-        CMS settings, but LMS/CMS should match anyway (and CMS not available here)
-        """
+    def _update_cookie_domain_for_site(self, site, cookie_domain):
+        """Set the SESSION_COOKIE_DOMAIN for site"""
         config = SiteConfiguration.objects.get(site=site)
-        domain = getattr(settings, 'SESSION_COOKIE_DOMAIN')
-        if domain:
-            config.values['SESSION_COOKIE_DOMAIN'] = domain
-            config.save()
+        config.values['SESSION_COOKIE_DOMAIN'] = cookie_domain
+        config.save()
 
     def to_representation(self, instance):
         """Make sure other_settings is always JSON
