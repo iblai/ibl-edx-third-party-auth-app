@@ -106,34 +106,11 @@ You will need various information in edx from the keycloak realm. First make sur
 - Open `edx-platform/lms/envs/common.py`
     - Set `ENABLE_THIRD_PARTY_AUTH = True` and save
     - Add `'third_party_auth.backends.KeycloakOAuth2'` to `AUTHENTICATION_BACKENDS`
-- **NOTE:** session part is subject to change here ...
-- In order to share sessions between the LMS and the CMS:
-    - in `lms/cms.envs.json` set the `SESSION_COOKIE_DOMAIN` to the highest level domain shared among all sites
-    - Examples:
-        - CMS: studio-yoursite.domain.com
-        - LMS1: lms1.yoursite.domain.com
-        - LMS2: lms2.yoursite.domain.com
-        - Set `SESSION_COOKIE_DOMAIN = '.domain.com'`
-        - **NOTE:** this could be dangerous!! what about other sites you're running that have `.domain.com`? You'll be sending this cookie to them, too ...
-        - [Relevant Security Info](https://www.acunetix.com/blog/articles/why-scoping-cookies-to-parent-domains-is-a-bad-idea/)
-    - A better solution:
-        - CMS: studio.yoursite.domain.com
-        - LMS1: lms1.yoursite.domain.com
-        - LMS2: lms2.yoursite.domain.com
-        - Set `SESSION_COOKIE_DOMAIN = '.yoursite.domain.com'`
-        - **NOTE:** This is a bit better since it your should more specific to your application only.
 - in `lms.env.json`, set all the fields under `REGISTRATION_EXTRA_FIELDS` to `hidden`
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
 - Navigate to `/edx/app/edxapp/edx-platform`
 - Run: `./manage.py lms migrate third_party_auth --settings=production`
 - Restart the lms: `/edx/bin/supervisorctl restart lms cms`
-
-### Session Management Notes
-For the CMS to be able to auto-use the logged in user (share the session), the session cookie domain has to be set to the most specific subdomain domain shared by all services, as described above.
-
-**This does mean that if you login to multiple LMSs (subdomains) in the same browser, the last window to be refreshed will be the current session. It's definitely best not to login to multiple LMS subdomains in the same session. Different browsers and/or incognito/private browsers are the best way to accomplish this.**
-
-**Note:** The [API](#api) used to setup SSO backends will automatically set the `SESSION_COOKIE_DOMAIN` to the value found in `lms/envs/common.py`, if set.
 
 ### CMS Template Update
 **Note:** This requires the [cms theming engine](https://gitlab.com/iblstudios/iblx-cms/) to be installed.
@@ -147,6 +124,39 @@ In order to put that into the `Sign Out` linke, we need to perform the following
 Do this as the `edxapp` user or make sure to `chown` the files to `edxapp:edxapp` once moved.
 
 **NOTE:** We should probably find a more robust way to do this in the future.
+
+### LMS and CMS Site Configurations
+In order to allow SSO between the LMS and CMS, they must share the same session cookie. The only way to accomplish this is for the Studio to exist on a subdomain of the LMS. For example:
+
+- LMS: `org1.some.domain.com`
+- CMS: `studio.org1.some.domain.com`
+
+There needs to be a `Site` and `Site Configuration` entry for both LMS and CMS. The `Site Configuration`s must both have a `SESSION_COOKIE_DOMAIN` value set to the LMS subdomain with a dot prefix, eg: `.org1.some.domain.com`. They must also use the same `SESSION_COOKIE_NAME` (which is `sessionid` by default, so you shouldn't need to change this).
+
+When the `OAuth2ProviderConfig` is created via the API, it will automatically set the `SESSION_COOKIE_DOMAIN` properly for both the target LMS and CMS.
+
+In order for Studio to function properly, the following attributes needs to exist in the CMS `Site Configuration`:
+
+```json
+{
+  "site_domain":"studio.org1.your.domain",
+  "SITE_NAME":"studio.org1.your.domain",
+  "SESSION_COOKIE_DOMAIN":".org1.your.domain",
+  "LMS_BASE":"org1.your.domain",
+  "PREVIEW_LMS_BASE":"preview.org1.your.domain",
+  "course_org_filter":[
+    "edX"
+  ]
+}
+```
+
+It's possible the CMS `Site Configuration` will be created through other means, but for completness:
+
+- The `PREVIEW/LMS_BASE` values should be the parent domain of the Studio domain
+- `SESSION_COOKIE_DOMAIN` will be set properly when the API is executed
+- the `course_org_filter` should list the orgs that will exist on that `LMS_BASE` domain
+    - This is how `View Live` and `Preview` get the domain to use
+    - each org should only exist in _one_ CMS `Site Configuration`
 
 ### OAuth2 Setup
 In order to use the OAuth2 Provider Configuration API endpoints, we must create an `OAuth2` client for that user and the requesting application.
@@ -241,7 +251,8 @@ Example Response:
         "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
         "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
         "TARGET_OP": "https://your.keycloak.com",
-        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
+        "CMS_SITE": "studio.org1.domain.com"
     },
     "secret": "some-secret-value",
     "site": "your.domain.com",
@@ -270,7 +281,8 @@ Example Response:
         "ACCESS_TOKEN_URL": "https://your.auth.server.com/its-access-token-endpoint",
         "END_SESSION_URL": "https://your.auth.server.com/its-end-session-endpoint",
         "TARGET_OP": "https://your.auth.server.com",
-        "CHECK_SESSION_URL": "https://devauth.netacad.com/auth/realms/Citizenschool/protocol/openid-connect/login-status-iframe.html"
+        "CHECK_SESSION_URL": "https://devauth.netacad.com/auth/realms/Citizenschool/protocol/openid-connect/login-status-iframe.html",
+        "CMS_SITE": "studio.org1.domain.com"
 
     },
     "site": "your.edx.subdomain.com"
@@ -289,6 +301,7 @@ Parameter definitons are as follows:
 - `END_SESSION_URL`: the end session url of OP
 - `TARGET_OP`: https://your.auth.server.com (protocol + auth server domain)
 - `CHECK_SESSION_URL`: check session endpoint of OP. Allows RP to direct an iframe to this endpoint to check session status at the OP
+- `CMS_SITE`: the domain of the studio - must be a subdomain of the `site` domain, eg: `studio.org1.domain.com` as subdomain of `org1.domain.com`
 
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 
