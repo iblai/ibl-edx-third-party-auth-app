@@ -75,6 +75,65 @@ In order to use the OAuth2 Provider Configuration API endpoints, we must create 
 - Set the client type to `Confidential (Web Applications)`
 - Click Save
 
+## Temporary CMS Site Setup
+In order to share a session with the LMS, the studio must live on a subdomain of that LMS. These steps will be automated into the site creation API calls in the future, but until then the following steps must be taken:
+
+- Open the django at `your.domain.com/admin` and login as a super user
+- Select `Sites` under the `SITES` topic
+- Click `ADD SITE` in the upper right
+- Set the domain to `studio.your.lms.domain.com`
+- Set the display name to `<Your Org> Studio`
+- Click Save
+- Click `Home` in the upper left to navigate back to the main Django admin page
+- Select `Site Configuration` under the `SITE_CONFIGURATION` header
+- Click `ADD SITE CONFIGURATION` in the upper right
+- Select the `studio.your.lms.domain.com` site that you just created in the `Site` dropdown
+- Check `Enabled`
+- In the `Values` field, copy the following json, updating it appropriately:
+
+```json
+{
+  "site_domain": "studio.your.lms.domain.com",
+  "SITE_NAME": "studio.your.lms.domain.com",
+  "SESSION_COOKIE_DOMAIN": ".your.lms.domain.com",
+  "LMS_BASE": "your.lms.domain.com",
+  "PREVIEW_LMS_BASE": "preview.your.lms.domain.com",
+  "course_org_filter": [
+    "<your_org_short_name>"
+  ]
+}
+```
+
+**Note:** Notice the leading `.` in the `SESSION_COOKIE_DOMAIN`! It is critical.
+
+This is an example filled in for the lms domain: `organization1.example.domain.com` for org short name `org1`:
+
+```json
+{
+  "site_domain": "studio.organization1.example.domain.com",
+  "SITE_NAME": "studio.organization1.example.domain.com",
+  "SESSION_COOKIE_DOMAIN": ".organization1.example.domain.com",
+  "LMS_BASE": "organization1.example.domain.com",
+  "PREVIEW_LMS_BASE": "preview.organization1.example.domain.com",
+  "course_org_filter": [
+    "org1"
+  ]
+}
+```
+
+Finally, click the `Save` button.
+
+We now need to make sure the `SESSION_COOKIE_DOMAIN` value for the LMS Site Configuration matches the one we just created.
+
+- Go back to the list of `Site Configuration` entries
+- Click the _LMS_ domain that corresponds to the parent domain of the studio you just created
+    - eg, if you just created `studio.organization1.domain.com`, click `organization1.domain.com`
+- Add or update the `SESSION_COOKIE_DOMAIN` value to match that of the current domain with a leading `.`
+    - So if the current domain is `organization1.example.domain.com`, it should be `.organization1.example.domain.com`
+- Click `Save`
+
+This process needs to be repeated for each LMS - CMS pair.
+
 ## API
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
 
@@ -98,8 +157,7 @@ Example Response:
             "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
             "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
             "TARGET_OP": "https://your.keycloak.com",
-            "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
-            "CMS_SITE": "studio.org1.domain.com"
+            "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
         },
         "secret": "some-secret-value",
         "site": "your.domain.com",
@@ -125,8 +183,7 @@ Example Response:
         "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
         "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
         "TARGET_OP": "https://your.keycloak.com",
-        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
-        "CMS_SITE": "studio.org1.domain.com"
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
     },
     "secret": "some-secret-value",
     "site": "your.domain.com",
@@ -148,12 +205,11 @@ Example Response:
     "secret": "your client credentials secret",
     "other_settings": {
         "PUBLIC_KEY": "auth-servers public key (no begin/end clauses, just key string)",
-        "AUTHORIZATION_URL": "https://your.auth.server.com/its-auth-endpoint",
-        "ACCESS_TOKEN_URL": "https://your.auth.server.com/its-access-token-endpoint",
-        "END_SESSION_URL": "https://your.auth.server.com/its-end-session-endpoint",
-        "TARGET_OP": "https://your.auth.server.com",
-        "CHECK_SESSION_URL": "https://devauth.netacad.com/auth/realms/Citizenschool/protocol/openid-connect/login-status-iframe.html",
-        "CMS_SITE": "studio.your.edx.domain.com"
+        "CHECK_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/login-status-iframe.html",
+        "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
+        "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
+        "TARGET_OP": "https://your.keycloak.com",
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
 
     },
     "site": "your.edx.subdomain.com"
@@ -172,7 +228,6 @@ Parameter definitons are as follows:
 - `END_SESSION_URL`: the end session url of OP
 - `TARGET_OP`: https://your.auth.server.com (protocol + auth server domain)
 - `CHECK_SESSION_URL`: check session endpoint of OP. Allows RP to direct an iframe to this endpoint to check session status at the OP
-- `CMS_SITE`: the domain of the studio - must be a subdomain of the `site` domain, eg: `studio.org1.domain.com` as subdomain of `org1.domain.com`
 
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 

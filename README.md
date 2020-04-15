@@ -89,7 +89,7 @@ In order for Studio to function properly, the following attributes needs to exis
   "LMS_BASE":"org1.your.domain",
   "PREVIEW_LMS_BASE":"preview.org1.your.domain",
   "course_org_filter":[
-    "edX"
+    "org1"
   ]
 }
 ```
