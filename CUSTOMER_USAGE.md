@@ -134,6 +134,8 @@ We now need to make sure the `SESSION_COOKIE_DOMAIN` value for the LMS Site Conf
 
 This process needs to be repeated for each LMS - CMS pair.
 
+**NOTE:** After this process is complete, any user that previously accessed these sites will need to clear their cookies for those sites! Otherwise there may be existing cookies that cause conflicts. You can double check proper function by using a new incognito/private browsing window.
+
 ## API
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
 
