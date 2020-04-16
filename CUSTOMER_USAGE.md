@@ -49,7 +49,8 @@ You will need various information in edx from the keycloak realm. First make sur
     - Specifically:
         - `authorization_endpoint`
         - `token_endpoint`
-        - TODO: `end_session_endpoint` ?
+        - `end_session_endpoint`
+        - `check_session_iframe`
 - OAuth2 Credentials:
     - Select `Clients` on the left
     - Select the `edx` client (or whatever you named it)
@@ -142,6 +143,8 @@ In order to use the API, your client must first obtain an access token for the c
 For supporting multiple keycloak realms, use **keycloak** for `backend_name` in the URLS below.
 
 The following endpoints are active in this implementation:
+
+### List Configurations for Backend
 - **GET:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/`
     - Returns List of dicts that contain information about the backend
 
@@ -169,7 +172,8 @@ Example Response:
 ]
 ```
 
-- **GET:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/<pk>`
+### Get Details about Specific Configuration
+- **GET:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/{id}`
     - Returns detail about a specific configuration via it's primary key (id from list endpoint, above)
 
 Example Response:
@@ -194,9 +198,8 @@ Example Response:
 }
 ```
 
+### Create/Update Backend Configuration
 - **POST:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/`
-    - Create a new configuration for a given backend and site
-        - **NOTE:** The `site` and `CMS_SITE` must already exist on edx in order to create a configuration for that combination.
     - The payload must be `application/json` formatted as follows:
 
 ```json
@@ -218,6 +221,8 @@ Example Response:
 }
 ```
 
+- **NOTE:** The `site` must already exist on edx in order to create a configuration for that domain.
+
 Parameter definitons are as follows:
 - `name`: A display name used in the django admin. Can just be the org name
 - `enabled`: Whether or not to enable this SSO configuration for the site
@@ -234,3 +239,9 @@ Parameter definitons are as follows:
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 
 The response will be the created object, just like the contents returned from the `detail` endpoint.
+
+## Notes about SSO Flow
+- When performing user onboarding through the user-management API, please make sure to add `"provider": "keycloak"` to the payload
+- This will ensure an entry gets created for this user and backend in the django admin's `User Social Auth` table
+- If this is not done during onboarding, when the user logs in they will be presented with a dialog asking them to link their account
+- This dialog will also not show up if the user logs in **before** they have been onboarded (eg, before their username exists in edx) as the standard workflow will create the `User` and the `User Social Auth` entry
