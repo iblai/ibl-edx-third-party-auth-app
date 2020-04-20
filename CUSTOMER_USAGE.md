@@ -98,6 +98,7 @@ In order to share a session with the LMS, the studio must live on a subdomain of
   "SITE_NAME": "studio.your.lms.domain.com",
   "SESSION_COOKIE_DOMAIN": ".your.lms.domain.com",
   "LMS_BASE": "your.lms.domain.com",
+  "FRONTEND_LOGIN_URL": "https://your.lms.domain.com/login",
   "PREVIEW_LMS_BASE": "preview.your.lms.domain.com",
   "course_org_filter": [
     "<your_org_short_name>"
@@ -115,6 +116,7 @@ This is an example filled in for the lms domain: `organization1.example.domain.c
   "SITE_NAME": "studio.organization1.example.domain.com",
   "SESSION_COOKIE_DOMAIN": ".organization1.example.domain.com",
   "LMS_BASE": "organization1.example.domain.com",
+  "FRONTEND_LOGIN_URL": "https://organization1.example.domain.com/login",
   "PREVIEW_LMS_BASE": "preview.organization1.example.domain.com",
   "course_org_filter": [
     "org1"
@@ -245,3 +247,4 @@ The response will be the created object, just like the contents returned from th
 - This will ensure an entry gets created for this user and backend in the django admin's `User Social Auth` table
 - If this is not done during onboarding, when the user logs in they will be presented with a dialog asking them to link their account
 - This dialog will also not show up if the user logs in **before** they have been onboarded (eg, before their username exists in edx) as the standard workflow will create the `User` and the `User Social Auth` entry
+

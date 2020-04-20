@@ -5,6 +5,7 @@
   from django.urls import reverse
   from django.utils.translation import ugettext as _
   from openedx.core.djangoapps.lang_pref.api import header_language_selector_is_enabled, released_languages
+  from openedx.core.djangoapps.site_configuration.helpers import get_configuration_value
 %>
 <div class="wrapper-header wrapper" id="view-top">
   <header class="primary" role="banner">
@@ -244,7 +245,7 @@
               </li>
           % endif
           <li class="nav-item nav-not-signedin-signin">
-            <a class="action action-signin" href="${settings.FRONTEND_LOGIN_URL}?next=${current_url}">${_("Sign In")}</a>
+            <a class="action action-signin" href="${get_configuration_value('FRONTEND_LOGIN_URL', settings.FRONTEND_LOGIN_URL)}?next=${current_url}">${_("Sign In")}</a>
           </li>
         </ol>
       </nav>
