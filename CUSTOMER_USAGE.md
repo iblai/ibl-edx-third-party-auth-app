@@ -244,7 +244,7 @@ The response will be the created object, just like the contents returned from th
 
 ## Notes about SSO Flow
 - When performing user onboarding through the [user-management API](https://docs.ibleducation.com/cisco/docs/ibl-user-api/), please make sure to add `"provider": "keycloak"` to the payload
+    - The users full name must also be provided as that is a required field for EdX
 - This will ensure an entry gets created for this user and backend in the django admin's `User Social Auth` table
 - If this is not done during onboarding, when the user logs in they will be presented with a dialog asking them to link their account
-- This dialog will also not show up if the user logs in **before** they have been onboarded (eg, before their username exists in edx) as the standard workflow will create the `User` and the `User Social Auth` entry
 
