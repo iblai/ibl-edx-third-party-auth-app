@@ -79,6 +79,26 @@ TPA_ENABLE_OP_SESSION_MANAGEMENT = True
 In `cms.envs.json`, under `FEATURES`, add/edit the following:
 * `"DISABLE_STUDIO_SSO_OVER_LMS": true,`
 
+In `cms/urls.py`:
+* Setup the beginning of the `urlpatterns` definition as follows:
+
+```python
+urlpatterns = []
+# Third-party auth.
+if settings.FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
+    urlpatterns += [
+        url(r'', include('third_party_auth.urls')),
+        url(r'api/third_party_auth/', include('third_party_auth.api.urls')),
+    ]
+
+# Start of normal CMS urlpattersn
+urlpatterns += [
+    url(r'', include('openedx.core.djangoapps.user_authn.urls_common')),
+    ...
+```
+
+The third party patterns need to come first because they include an override of the `logout` endpoint.
+
 Restart the CMS.
 
 ### LMS Template Updates
