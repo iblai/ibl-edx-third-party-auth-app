@@ -15,9 +15,15 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - enter the `Client ID` - can be `edx` for simplicity
 - click `Save`
 - Change `Access Type` to `confidential`
-- In the `Valid redirect URIs` field, enter:
-    - `https://edx.subdomain.com/auth/complete/keycloak/*`
-    - `https://edx.subdomain.com`
+- In the `Valid redirect URIs` field, create the following entries for the LMS and CMS:
+    - `https://lms.domain.com/auth/complete/keycloak/*`
+    - `https://lms.domain.com`
+    - `https://studio.domain.com/auth/complete/keycloak/*`
+    - `https://studio.domain.com`
+        - You ultimately need two entries for each domain you want this realm to provide authentication for:
+            - `https://some.domain.com`
+            - `https://some.domain.com/auth/complete/keycloak/*`
+
 - In `Web Origins` add `+` (literally, just a `+` symbol)
 - Expand `Fine Grain OpenID Connect Configuration`
     - Change `User Info Signed Response Algorithm` to `RS256`
@@ -82,13 +88,13 @@ In order to share a session with the LMS, the studio must live on a subdomain of
 - Open the django at `your.domain.com/admin` and login as a super user
 - Select `Sites` under the `SITES` topic
 - Click `ADD SITE` in the upper right
-- Set the domain to `studio.your.lms.domain.com`
-- Set the display name to `<Your Org> Studio`
+- Set the domain to `your.studio.domain.com`
+- Set the display name to the same value as the domain
 - Click Save
 - Click `Home` in the upper left to navigate back to the main Django admin page
 - Select `Site Configuration` under the `SITE_CONFIGURATION` header
 - Click `ADD SITE CONFIGURATION` in the upper right
-- Select the `studio.your.lms.domain.com` site that you just created in the `Site` dropdown
+- Select the `your.studio.domain.com` site that you just created in the `Site` dropdown
 - Check `Enabled`
 - In the `Values` field, copy the following json, updating it appropriately:
 
@@ -96,50 +102,42 @@ In order to share a session with the LMS, the studio must live on a subdomain of
 {
   "site_domain": "studio.your.lms.domain.com",
   "SITE_NAME": "studio.your.lms.domain.com",
-  "SESSION_COOKIE_DOMAIN": ".your.lms.domain.com",
+  "SESSION_COOKIE_DOMAIN": "your.studio.domain.com",
   "LMS_BASE": "your.lms.domain.com",
-  "FRONTEND_LOGIN_URL": "https://your.lms.domain.com/login",
   "PREVIEW_LMS_BASE": "preview.your.lms.domain.com",
+  "PLATFORM_NAME":"Your Org Name",
   "course_org_filter": [
     "<your_org_short_name>"
-  ]
+  ],
+  "is_cms": true
 }
 ```
 
-**Note:** Notice the leading `.` in the `SESSION_COOKIE_DOMAIN`! It is critical.
-
-This is an example filled in for the lms domain: `organization1.example.domain.com` for org short name `org1`:
+This is an example filled in for the cms domain: `studio.example.domain.com` with org short name `org1` and :
 
 ```json
 {
-  "site_domain": "studio.organization1.example.domain.com",
-  "SITE_NAME": "studio.organization1.example.domain.com",
-  "SESSION_COOKIE_DOMAIN": ".organization1.example.domain.com",
-  "LMS_BASE": "organization1.example.domain.com",
-  "FRONTEND_LOGIN_URL": "https://organization1.example.domain.com/login",
-  "PREVIEW_LMS_BASE": "preview.organization1.example.domain.com",
+  "site_domain": "studio.example.domain.com",
+  "SITE_NAME": "studio.example.domain.com",
+  "SESSION_COOKIE_DOMAIN": "studio.example.domain.com",
+  "LMS_BASE": "lms.example.domain.com",
+  "PREVIEW_LMS_BASE": "preview.example.domain.com",
+  "PLATFORM_NAME":"Organization1",
   "course_org_filter": [
     "org1"
-  ]
+  ],
+  "is_cms": true
 }
 ```
 
 Finally, click the `Save` button.
 
-We now need to make sure the `SESSION_COOKIE_DOMAIN` value for the LMS Site Configuration matches the one we just created.
-
-- Go back to the list of `Site Configuration` entries
-- Click the _LMS_ domain that corresponds to the parent domain of the studio you just created
-    - eg, if you just created `studio.organization1.domain.com`, click `organization1.domain.com`
-- Add or update the `SESSION_COOKIE_DOMAIN` value to match that of the current domain with a leading `.`
-    - So if the current domain is `organization1.example.domain.com`, it should be `.organization1.example.domain.com`
-- Click `Save`
-
-This process needs to be repeated for each LMS - CMS pair.
+Each LMS and CMS must have a Site Configuration. The `SESSION_COOKIE_DOMAIN` for each one should be set to their own sites domain.
 
 **NOTE:** After this process is complete, any user that previously accessed these sites will need to clear their cookies for those sites! Otherwise there may be existing cookies that cause conflicts. You can double check proper function by using a new incognito/private browsing window.
 
 ## API
+
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
 
 For supporting multiple keycloak realms, use **keycloak** for `backend_name` in the URLS below.
@@ -241,6 +239,8 @@ Parameter definitons are as follows:
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 
 The response will be the created object, just like the contents returned from the `detail` endpoint.
+
+**Note:** You need to create an entry for _each_ lms and cms domain that is used!
 
 ## Notes about SSO Flow
 - When performing user onboarding through the [user-management API](https://docs.ibleducation.com/cisco/docs/ibl-user-api/), please make sure to add `"provider": "keycloak"` to the payload
