@@ -792,23 +792,6 @@ def set_id_verification_status(auth_entry, strategy, details, user=None, *args, 
             )
 
 
-def store_logout_url(auth_entry, strategy, details, response, user=None, *args, **kwargs):
-    """Store a domain specific logout url in the session
-
-    The CMS exists on a single domain, but the LMS has many subdomains. We need to
-    logout from the correct subdomain (site) when you click Logout from Studio.
-
-    That value is set to settings.FRONTEND_LOGOUT_
-    """
-    request = strategy.request
-    protocol = 'https' if request.is_secure() else 'http'
-    logout_url = reverse('logout')
-    host = request.get_host()
-    strategy.request.session['logout_url'] = '{}://{}{}'.format(
-        protocol, host, logout_url
-    )
-
-
 def check_session_management(auth_entry, strategy, details, response, user=None, *args, **kwargs):
     """Store the session_state in the current session if it was returned
 

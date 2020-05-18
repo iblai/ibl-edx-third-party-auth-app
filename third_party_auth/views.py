@@ -5,7 +5,9 @@ import logging
 
 from urllib import urlencode
 
+import edx_oauth2_provider
 from django.conf import settings
+from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseServerError
 from django.shortcuts import redirect, render
@@ -16,6 +18,7 @@ from social_django.views import complete
 from social_core.utils import setting_name
 
 from openedx.core.djangoapps.user_authn.views.logout import LogoutView
+from openedx.core.djangoapps.user_authn.cookies import delete_logged_in_cookies
 from student.models import UserProfile
 from student.views import compose_and_send_activation_email
 import third_party_auth
@@ -133,9 +136,46 @@ class TPALogoutView(LogoutView):
     Ideally, that endpoint will redirect the user back to the the current
     domains home page.
     """
+    def dispatch(self, request, *args, **kwargs):
+        """Changes how response is created"""
+        # We do not log here, because we have a handler registered to perform logging on successful logouts.
+        request.is_from_logout = True
+
+        # Get the list of authorized clients before we clear the session.
+        self.oauth_client_ids = request.session.get(edx_oauth2_provider.constants.AUTHORIZED_CLIENTS_SESSION_KEY, [])
+
+        logout(request)
+
+        if settings.PROJECT_ROOT.name == 'lms':
+            # For the LMS, we redirect to the normal logout page
+            response = super(LogoutView, self).dispatch(request, *args, **kwargs)
+        else:
+            # for the CMS,
+            context = self.get_context_data()
+            target = context.get('target')
+            if not target:
+                log.error("Missing target; falling back to original response")
+                response = self._get_original_response(request, *args, **kwargs)
+            else:
+                response = redirect(target)
+
+        # Clear the cookie used by the edx.org marketing site
+        delete_logged_in_cookies(response)
+
+        return response
+
+    def _get_original_response(self, request, *args, **kwargs):
+        """Return the response based on the original function"""
+        if settings.FEATURES.get('DISABLE_STUDIO_SSO_OVER_LMS', False) and not self.oauth_client_ids:
+            response = redirect(self.target)
+        else:
+            response = super(LogoutView, self).dispatch(request, *args, **kwargs)
+        return response
+
     def get_context_data(self, **kwargs):
         context = super(TPALogoutView, self).get_context_data(**kwargs)
         # Default behavior if not logoout provider set
+        log.info(context)
         if TPA_LOGOUT_PROVIDER is None:
             return context
 
