@@ -42,7 +42,7 @@ This package is meant to replace the built in `edx_third_party` auth package.
 ## EdX Setup
 - Become the root `sudo -i`
 - Open `edx-platform/lms/envs/common.py`
-    - Set `ENABLE_THIRD_PARTY_AUTH = True` and save
+    - Under `FEATURES`, Set `"ENABLE_THIRD_PARTY_AUTH": True`
     - Add `'third_party_auth.backends.KeycloakOAuth2'` to `AUTHENTICATION_BACKENDS`
 - in `lms.env.json`, set all the fields under `REGISTRATION_EXTRA_FIELDS` to `hidden`
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
@@ -64,6 +64,7 @@ In `cms/envs/common.py`:
 * Add `'third_party_auth.backends.KeycloakOAuth2',` to the front of the `AUTHENTICATION_BACKENDS` list
 * Add `'ibl_tpa.middleware.TPAMiddleware',` as the second to last entry in the `MIDDLEWARE_CLASSES` list
 * Add `third_party_auth` to the `INSTALLED_APPS`
+* Under `FEATURES`, Add `"ENABLE_THIRD_PARTY_AUTH": True,`
 * Add the following to the bottom of the file:
 
 ```python
