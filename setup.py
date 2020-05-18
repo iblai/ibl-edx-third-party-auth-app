@@ -24,5 +24,5 @@ setup(
     description='EdX Third Parth Auth package with IBL specific modifications',
     license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
     packages=find_packages(),
-    # package_data=package_data("third_party_auth", []),
+    package_data=package_data("third_party_auth", ['api', 'management', 'migrations', 'templates']),
 )
