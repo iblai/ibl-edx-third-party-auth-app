@@ -16,14 +16,8 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - click `Save`
 - Change `Access Type` to `confidential`
 - In the `Valid redirect URIs` field, create the following entries for the LMS and CMS:
-    - `https://lms.domain.com/auth/complete/keycloak/*`
-    - `https://lms.domain.com`
-    - `https://studio.domain.com/auth/complete/keycloak/*`
-    - `https://studio.domain.com`
-        - You ultimately need two entries for each domain you want this realm to provide authentication for:
-            - `https://some.domain.com`
-            - `https://some.domain.com/auth/complete/keycloak/*`
-
+    - `https://lms.domain.com/*`
+    - `https://studio.domain.com/*`
 - In `Web Origins` add `+` (literally, just a `+` symbol)
 - Expand `Fine Grain OpenID Connect Configuration`
     - Change `User Info Signed Response Algorithm` to `RS256`
@@ -100,8 +94,8 @@ In order to share a session with the LMS, the studio must live on a subdomain of
 
 ```json
 {
-  "site_domain": "studio.your.lms.domain.com",
-  "SITE_NAME": "studio.your.lms.domain.com",
+  "site_domain": "your.studio.domain.com",
+  "SITE_NAME": "your.studio.domain.com",
   "SESSION_COOKIE_DOMAIN": "your.studio.domain.com",
   "LMS_BASE": "your.lms.domain.com",
   "PREVIEW_LMS_BASE": "preview.your.lms.domain.com",
@@ -117,9 +111,9 @@ This is an example filled in for the cms domain: `studio.example.domain.com` wit
 
 ```json
 {
-  "site_domain": "studio.example.domain.com",
-  "SITE_NAME": "studio.example.domain.com",
-  "SESSION_COOKIE_DOMAIN": "studio.example.domain.com",
+  "site_domain": "example.studio.domain.com",
+  "SITE_NAME": "example.studio.domain.com",
+  "SESSION_COOKIE_DOMAIN": "example.studio.domain.com",
   "LMS_BASE": "lms.example.domain.com",
   "PREVIEW_LMS_BASE": "preview.example.domain.com",
   "PLATFORM_NAME":"Organization1",
@@ -137,7 +131,6 @@ Each LMS and CMS must have a Site Configuration. The `SESSION_COOKIE_DOMAIN` for
 **NOTE:** After this process is complete, any user that previously accessed these sites will need to clear their cookies for those sites! Otherwise there may be existing cookies that cause conflicts. You can double check proper function by using a new incognito/private browsing window.
 
 ## API
-
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
 
 For supporting multiple keycloak realms, use **keycloak** for `backend_name` in the URLS below.
@@ -198,7 +191,7 @@ Example Response:
 }
 ```
 
-### Create/Update Backend Configuration
+### Create-Update Backend Configuration
 - **POST:** `/api/third_party_auth/v0/oauth-providers/{backend_name}/`
     - The payload must be `application/json` formatted as follows:
 
@@ -240,11 +233,40 @@ The `client_id`, `secret`, and values from `other_settings` can be found on keyc
 
 The response will be the created object, just like the contents returned from the `detail` endpoint.
 
-**Note:** You need to create an entry for _each_ lms and cms domain that is used!
+## Onboarding A New Domain
+Once you have an OAuth2 token and can access the API, complete the following steps for each domain:
+
+In the Django admin:
+- Ensure a `Site` object is created for the domain
+- Create a `Site Configuration` that references the `Site` object
+
+```json
+{
+  "site_domain": "lms.example.domain.com",
+  "SITE_NAME": "lms.example.domain.com",
+  "SESSION_COOKIE_DOMAIN": "lms.example.domain.com",
+  "PREVIEW_LMS_BASE": "preview.lms.example.domain.com",
+  "PLATFORM_NAME":"Organization1",
+  "course_org_filter": [
+    "org1"
+  ],
+}
+```
+
+- Use the [Create-Update](#create-updatebackendconfiguration) API to setup keycloak for that realm and domain
+- If the site is a CMS (Studio), add `"is_cms": true` to the Site Configuration json
+- The `SESSION_COOKIE_DOMAIN` should be set to the sites domain
+
+This process needs to be repeated for each `LMS` and `CMS` domain that exists.
 
 ## Notes about SSO Flow
 - When performing user onboarding through the [user-management API](https://docs.ibleducation.com/cisco/docs/ibl-user-api/), please make sure to add `"provider": "keycloak"` to the payload
     - The users full name must also be provided as that is a required field for EdX
 - This will ensure an entry gets created for this user and backend in the django admin's `User Social Auth` table
 - If this is not done during onboarding, when the user logs in they will be presented with a dialog asking them to link their account
+- Please ensure users's are onboarded to edx _before_ they try and login to the LMS/CMS.
+    - Logging into the LMS could present the user with additional fields to fill out, depending on what's passed via the id token
+    - Logging into the CMS first will result in a "Page Not Found" because it will try to redirect to a `registration` url
+
+
 
