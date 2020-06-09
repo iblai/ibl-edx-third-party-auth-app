@@ -105,11 +105,8 @@ Restart the CMS.
 **Note:** This requires the [lms theming engine](https://gitlab.com/iblstudios/iblx-lms/) to be installed.
 
 This adds support for the rp-check-session endpoint to the lms
-* Copy the file `third_party_auth/templates/third_party_auth/body-extra.html` to: `edx-platform/themes/iblx/lms/templates/client/`
+* Copy the file `third_party_auth/templates/third_party_auth/body-final.html` to: `edx-platform/themes/iblx/lms/templates/client/`
 * Change the owner:group of that file to `edxapp:edxapp`
-* Open `iblx/templates/main.html` and add the following line:
-    * `<%static:optional_include_mako file="/client/body-extra.html" is_theming_enabled="True" />`
-    * right under this line: `<%static:optional_include_mako file="/body-extra.html" is_theming_enabled="True" />`
 
 ### CMS Template Updates
 **Note:** This requires the [cms theming engine](https://gitlab.com/iblstudios/iblx-cms/) to be installed.
