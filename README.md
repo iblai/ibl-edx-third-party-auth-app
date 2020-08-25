@@ -24,7 +24,7 @@ Each LMS and CMS Site domain requires a django `Site` model object and associate
 
 ## Test Updates
 I made minor updates to the tests:
-- updated expected `provider_id` values where necessary since that's composed of `KEYS` which used to be `slug` only and is now `slug`, `site_id`
+- Updated expected `provider_id` values where necessary since that's composed of `KEYS` which used to be `slug` only and is now `slug`, `site_id`
 - Instead of the Base test creating a new site, I have it fetch `Site.objects.all()[0]`
     - When `KEYS` was just `('slug',)`, it didn't matter which site was used. It's applied to the whole platform
     - In our case, the provider site needs to match the requests site
@@ -36,15 +36,16 @@ Added one additional test in `test_provider.py` that tests multiple keycloak pro
 ## Installation
 This package is meant to replace the built in `edx_third_party` auth package.
 
-- rename the `third_party_auth` directory in `edx-platform/lms/common/djangoapps/` to `third_party_auth_old`
+- rename the `third_party_auth` directory in `edx-platform/common/djangoapps/` to `third_party_auth_old`
 - `sudo -Hu edxapp /edx/bin/pip.edxapp install git+https://gitlab.com/iblstudios/cisco-third-party-auth`
 
 ## EdX Setup
 - Become the root `sudo -i`
 - Open `edx-platform/lms/envs/common.py`
-    - Under `FEATURES`, Set `"ENABLE_THIRD_PARTY_AUTH": True`
     - Add `'third_party_auth.backends.KeycloakOAuth2'` to `AUTHENTICATION_BACKENDS`
-- in `lms.env.json`, set all the fields under `REGISTRATION_EXTRA_FIELDS` to `hidden`
+- In `lms.env.json`:
+    - Under `FEATURES`, set `"ENABLE_THIRD_PARTY_AUTH": true`
+    - Set all the fields under `REGISTRATION_EXTRA_FIELDS` to `hidden`
 - Activate the venv: `source /edx/app/edxapp/venvs/edxapp/bin/activate`
 - Navigate to `/edx/app/edxapp/edx-platform`
 - Run: `./manage.py lms migrate third_party_auth --settings=production`
@@ -64,7 +65,6 @@ In `cms/envs/common.py`:
 * Add `'third_party_auth.backends.KeycloakOAuth2',` to the front of the `AUTHENTICATION_BACKENDS` list
 * Add `'ibl_tpa.middleware.TPAMiddleware',` as the second to last entry in the `MIDDLEWARE_CLASSES` list
 * Add `third_party_auth` to the `INSTALLED_APPS`
-* Under `FEATURES`, Add `"ENABLE_THIRD_PARTY_AUTH": True,`
 * Add the following to the bottom of the file:
 
 ```python
@@ -76,8 +76,10 @@ TPA_LOGOUT_PROVIDER = 'keycloak'
 TPA_ENABLE_OP_SESSION_MANAGEMENT = True
 ```
 
-In `cms.envs.json`, under `FEATURES`, add/edit the following:
+In `cms.env.json`, under `FEATURES`, add/edit the following:
+* `"ENABLE_THIRD_PARTY_AUTH": true,`
 * `"DISABLE_STUDIO_SSO_OVER_LMS": true,`
+
 
 In `cms/urls.py`:
 * Setup the beginning of the `urlpatterns` definition as follows:
@@ -91,7 +93,7 @@ if settings.FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
         url(r'api/third_party_auth/', include('third_party_auth.api.urls')),
     ]
 
-# Start of normal CMS urlpattersn
+# Start of normal CMS urlpatterns
 urlpatterns += [
     url(r'', include('openedx.core.djangoapps.user_authn.urls_common')),
     ...
@@ -99,20 +101,46 @@ urlpatterns += [
 
 The third party patterns need to come first because they include an override of the `logout` endpoint.
 
+**IMPORTANT**: Note that the `urlpatterns` after the "Start of normal CMS urlpattern" comment have to be appended now. (`urlpatterns = [...]` -> `urlpatterns += [...]`)
+
 Restart the CMS.
 
 ### LMS Template Updates
-**Note:** This requires the [lms theming engine](https://gitlab.com/iblstudios/iblx-lms/) to be installed.
+**Note:** This requires the [LMS theming engine](https://gitlab.com/iblstudios/iblx-lms/) to be installed.
 
-This adds support for the rp-check-session endpoint to the lms
-* Copy the file `third_party_auth/templates/third_party_auth/body-final.html` to: `edx-platform/themes/iblx/lms/templates/client/`
+This adds support for the rp-check-session endpoint to the LMS
+* Copy the file in `third_party_auth/templates/third_party_auth/iblx-check-session-rp.html` to `edx-platform/themes/iblx/lms/templates/client/body-final.html` (create directory if necessary)
+   * *Note*: If the file has existing content, append appropriately
 * Change the owner:group of that file to `edxapp:edxapp`
 
-### CMS Template Updates
-**Note:** This requires the [cms theming engine](https://gitlab.com/iblstudios/iblx-cms/) to be installed.
+Command:
+```
+sudo -Hu edxapp mkdir -p  /edx/app/edxapp/edx-platform/themes/iblx/lms/templates/client
 
-This adds support for the rp-check-session endpoint to the cms
-* open `edx-platform/themes/iblx/cms/templates/base.html`
+sudo -Hu edxapp cp /edx/app/edxapp/venvs/edxapp/lib/python2.7/site-packages/third_party_auth/templates/third_party_auth/iblx-check-session-rp.html /edx/app/edxapp/edx-platform/themes/iblx/lms/templates/client/body-final.html
+```
+
+### CMS Template Updates
+**Note:** This requires the [CMS theming engine](https://gitlab.com/iblstudios/iblx-cms/) to be installed.
+
+This adds support for the rp-check-session endpoint to the CMS
+* Copy the file in `third_party_auth/templates/third_party_auth/iblx-check-session-rp.html` to `edx-platform/themes/iblx/cms/templates/client/body-initial.html` (create directory if necessary)
+   * *Note*: If the file has existing content, append appropriately
+* Change the owner:group of that file to `edxapp:edxapp`
+
+Command:
+```
+sudo -Hu edxapp mkdir -p  /edx/app/edxapp/edx-platform/themes/iblx/cms/templates/client
+
+sudo -Hu edxapp cp /edx/app/edxapp/venvs/edxapp/lib/python2.7/site-packages/third_party_auth/templates/third_party_auth/iblx-check-session-rp.html /edx/app/edxapp/edx-platform/themes/iblx/cms/templates/client/body-initial.html
+```
+
+
+#### Legacy
+<details>
+<summary>Manual Instructions</summary>
+
+* Open `edx-platform/themes/iblx/cms/templates/base.html`
 * Add the following after the `except ImportError` clause under the `# Hawthorn Imports` section:
 
 ```python
@@ -128,11 +156,13 @@ Add the following directly under the opening `body` tag:
     <iframe style="display: none;" src="${CHECK_SESSION_URL}" frameborder="1" width="10" height="10"></iframe>
 % endif
 ```
+</details>
 
-At some point, if a `body-extra.html` file can be included, we can move this into it.
 
 ### LMS and CMS Site Configurations
 There needs to be a `Site` and `Site Configuration` entry for both LMS and CMS. The `Site Configuration`s should have the `SESSION_COOKIE_DOMAIN` set to each of their respective domains.
+
+*NOTE*: In newer environments, the following may be automatically configured.
 
 In order for Studio to function properly, the following attributes needs to exist in the _CMS_ `Site Configuration`:
 
@@ -152,12 +182,13 @@ In order for Studio to function properly, the following attributes needs to exis
 
 The _LMS_ Site Configration should _not_ specify the `is_cms` key and should set its `SESSION_COOKIE_DOMAIN` to its domain.
 
-It's possible the CMS `Site Configuration` will be created through other means, but for completness:
+It's possible the CMS `Site Configuration` will be created through other means, but for completeness:
 
 - The `PREVIEW/LMS_BASE` values should be the parent domain of the Studio domain
-- the `course_org_filter` should list the org that will exist on that `LMS_BASE` domain
+- The `course_org_filter` should list the org that will exist on that `LMS_BASE` domain
     - This is how `View Live` and `Preview` get the domain to use
-    - each org should only exist in _one_ CMS `Site Configuration`
+    - Each org should only exist in _one_ CMS `Site Configuration`
+
 
 ### Optional Settings
 The following settings are added in order to support redirecting to a default backend provider's end session endpoint.
@@ -171,7 +202,7 @@ See [here](https://openid.net/specs/openid-connect-session-1_0.html#RedirectionA
 
 If there is no `END_SESSION_URL` entry on the provider, default logout behavior will be performed.
 
-The following are only relevant if `TPA_LOGOUT_PROVIDER` is set to a backend name. These settings will control a query string that can be appended to the end session url and provide a redirect after loggout out of the OP.
+The following are only relevant if `TPA_LOGOUT_PROVIDER` is set to a backend name. These settings will control a query string that can be appended to the end session URL and provide a redirect after logout out of the OP.
 
 Query string format: `<TPA_POST_LOGOUT_REDIRECT_FIELD>=<TPA_POST_LOGOUT_REDIRECT_URL>`
 
@@ -179,7 +210,7 @@ Query string format: `<TPA_POST_LOGOUT_REDIRECT_FIELD>=<TPA_POST_LOGOUT_REDIRECT
     - Query string field name for post logout redirect from OP
     - Default: `redirect_uri`
 - `TPA_POST_LOGOUT_REDIRECT_URL = 'https://your.domain.com'`
-    - Url for post logout redirect from OP
+    - URL for post logout redirect from OP
     - Default: `current_site`
     - If set to `None`, then no redirect URI query string will be added to the end session endpoint
 

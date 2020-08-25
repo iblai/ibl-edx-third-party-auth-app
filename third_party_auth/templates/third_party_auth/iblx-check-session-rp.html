@@ -1,0 +1,10 @@
+<% 
+    from django.conf import settings
+    from django.urls import reverse
+    ENABLE_OP_SESSION_MANAGEMENT = getattr(settings, "TPA_ENABLE_OP_SESSION_MANAGEMENT", False)
+    CHECK_SESSION_URL = "" if not ENABLE_OP_SESSION_MANAGEMENT else reverse('tpa-check-session-rp-iframe')
+%>
+
+% if ENABLE_OP_SESSION_MANAGEMENT:
+    <iframe style="display: none;" src="${CHECK_SESSION_URL}" frameborder="1" width="10" height="10"></iframe>
+% endif
