@@ -20,7 +20,7 @@ def package_data(pkg, roots):
 
 setup(
     name='third_party_auth',
-    version='1.0.1',
+    version='1.0.2',
     description='EdX Third Party Auth package with IBL specific modifications',
     license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
     packages=find_packages(),
