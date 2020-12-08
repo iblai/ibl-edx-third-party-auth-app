@@ -3,35 +3,7 @@ This is a modification to the base edx `third_party_auth` application to support
 
 Updates to this package also add support for dynamically modifying the `OAuth2ProviderConfigs` through OAuth2 Protected API endpoints.
 
-This document covers installation and backend setup. For customer facing usage and setup see the `CUSTOMER_USAGE.md` file.
-
-## Changes
-The following are the major changes made to the edx base application:
-- In `models.OAuth2ProviderConfig` we set `KEYS = ('slug', 'site_id')`
-    - This means the current configuration is keyed off the `slug` and `site`, so we can use the same backend for different sites
-        - Examples: `('keycloak', 'org1.domain.com'), ('keycloak', 'org2.domain.com')`
-- In `provider.py` we modify the `Registry` class (where necessary) to fetch items based on the `slug`/`backend.name` and the `site.id`
-- In `strategy.py` we fetch items based on the `slug`/`backend.name` and `site.id`
-- Optionally changes the logout behavior to logout of a 'default' backend by redirecting to its `end session url` endpoint
-- In `settings.py`:
-    - Add `check_session_management` to pipeline
-
-The requirement still holds that the `slug` must match the `backend_name` of the `OAuth2ProviderConfig`. This is automatically done when configuring with the external API.
-
-The original edx implementation exists on the `base-edx-implementation` branch, so a diff can always be done there to see what has changed.
-
-Each LMS and CMS Site domain requires a django `Site` model object and associated `Site Configuration` object.
-
-## Test Updates
-I made minor updates to the tests:
-- Updated expected `provider_id` values where necessary since that's composed of `KEYS` which used to be `slug` only and is now `slug`, `site_id`
-- Instead of the Base test creating a new site, I have it fetch `Site.objects.all()[0]`
-    - When `KEYS` was just `('slug',)`, it didn't matter which site was used. It's applied to the whole platform
-    - In our case, the provider site needs to match the requests site
-
-With these changes, all tests pass as they did before.
-
-Added one additional test in `test_provider.py` that tests multiple keycloak providers being enabled.
+This document covers installation and backend setup. For customer facing usage and setup see the `USAGE.md` file.
 
 ## Installation
 This package is meant to replace the built in `edx_third_party` auth package.
@@ -56,7 +28,7 @@ If you want to enable auto login for each domain to their keycloak realm:
 
 - Follow installation instructions for installing the [ibl-tpa-middleware](https://gitlab.com/iblstudios/ibl-tpa-middleware) package
 - Add it to the middleware as the second to last entry (leave `SessionCookieDomainOverrideMiddleware` at the end)
-- Set `TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'` in `lms/envs/common.py`
+- Set `IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'` in `lms/envs/common.py`
 
 ### Adding SSO to the CMS (via an external IDP)
 When adding SSO to the CMS (disabling SSO over LMS and using some IDP), complete the following:
@@ -70,8 +42,8 @@ In `cms/envs/common.py`:
 ```python
 TPA_PROVIDER_BURST_THROTTLE = '10/min'
 TPA_PROVIDER_SUSTAINED_THROTTLE = '50/hr'
-TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'}
-TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'
+IBL_TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'}
+IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'
 TPA_LOGOUT_PROVIDER = 'keycloak'
 TPA_ENABLE_OP_SESSION_MANAGEMENT = True
 ```
@@ -94,6 +66,7 @@ if settings.FEATURES.get('ENABLE_THIRD_PARTY_AUTH'):
     ]
 
 # Start of normal CMS urlpatterns
+# IMPORTANT: The only change here is making `=` -> `+=`
 urlpatterns += [
     url(r'', include('openedx.core.djangoapps.user_authn.urls_common')),
     ...
@@ -180,7 +153,7 @@ In order for Studio to function properly, the following attributes needs to exis
 }
 ```
 
-The _LMS_ Site Configration should _not_ specify the `is_cms` key and should set its `SESSION_COOKIE_DOMAIN` to its domain.
+The _LMS_ Site Configuration should _not_ specify the `is_cms` key and should set its `SESSION_COOKIE_DOMAIN` to its domain.
 
 It's possible the CMS `Site Configuration` will be created through other means, but for completeness:
 
