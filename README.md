@@ -1,4 +1,4 @@
-# Cisco-Third-Party-Auth
+# IBL-Edx-Third-Party-Auth
 This is a modification to the base edx `third_party_auth` application to support using variations of the same provider on each subdomain. This was built specifically with `KeyCloak` in mind to support a different realm on each subdomain.
 
 Updates to this package also add support for dynamically modifying the `OAuth2ProviderConfigs` through OAuth2 Protected API endpoints.
@@ -6,10 +6,10 @@ Updates to this package also add support for dynamically modifying the `OAuth2Pr
 This document covers installation and backend setup. For customer facing usage and setup see the `USAGE.md` file.
 
 ## Installation
-This package is meant to replace the built in `edx_third_party` auth package.
+This package is meant to replace the built in edx `third_party_auth` auth package.
 
 - rename the `third_party_auth` directory in `edx-platform/common/djangoapps/` to `third_party_auth_old`
-- `sudo -Hu edxapp /edx/bin/pip.edxapp install git+https://gitlab.com/iblstudios/cisco-third-party-auth`
+- `sudo -Hu edxapp /edx/bin/pip.edxapp install git+https://gitlab.com/iblstudios/ibl-edx-third-party-auth`
 
 ## EdX Setup
 - Become the root `sudo -i`

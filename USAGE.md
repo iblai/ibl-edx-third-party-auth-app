@@ -1,5 +1,5 @@
-# Cisco-Third-Party-Auth
-This document describes customer usage and required setup.
+# IBL-Edx-Third-Party-Auth
+This document describes usage and required setup.
 
 ## KeyCloak Setup
 ### New Realm Setup
@@ -26,6 +26,7 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - Click `Mappers` at the top
 - Click `Add Builtin` in the upper right
     - Check `email`, `username` (modify as required, `email`, `username` are required though)
+        - Add `given name`, `family name`, `nickname` to ensure first/last name are populated from keycloak
     - Click `Add Selected`
 - On that same `Mappers` tab, click `Create`
     - Set `Name` to `Audience`
@@ -77,7 +78,9 @@ In order to use the OAuth2 Provider Configuration API endpoints, we must create 
 - Click Save
 
 ## Temporary CMS Site Setup
-In order to share a session with the LMS, the studio must live on a subdomain of that LMS. These steps will be automated into the site creation API calls in the future, but until then the following steps must be taken:
+**NOTE**: This will automatically be completed in future iterations
+
+To ensure the Studio is setup to login through Keycloak as well, complete the following.
 
 - Open the django at `your.domain.com/admin` and login as a super user
 - Select `Sites` under the `SITES` topic
@@ -90,7 +93,7 @@ In order to share a session with the LMS, the studio must live on a subdomain of
 - Click `ADD SITE CONFIGURATION` in the upper right
 - Select the `your.studio.domain.com` site that you just created in the `Site` dropdown
 - Check `Enabled`
-- In the `Values` field, copy the following json, updating it appropriately:
+- In the `Values` field, copy the following json (at a minimum), updating it appropriately:
 
 ```json
 {
@@ -126,14 +129,14 @@ This is an example filled in for the cms domain: `studio.example.domain.com` wit
 
 Finally, click the `Save` button.
 
-Each LMS and CMS must have a Site Configuration. The `SESSION_COOKIE_DOMAIN` for each one should be set to their own sites domain.
+Each LMS and CMS must have a Site Configuration. The `SESSION_COOKIE_DOMAIN` for each one should be set to their own sites domain. This ensures each domain has its own session.
 
 **NOTE:** After this process is complete, any user that previously accessed these sites will need to clear their cookies for those sites! Otherwise there may be existing cookies that cause conflicts. You can double check proper function by using a new incognito/private browsing window.
 
 ## API
 In order to use the API, your client must first obtain an access token for the client you created in the previous step, [above](#oauth2-setup). Once you have obtained the access token, use it with the `Authorization: Bearer <token>` header to access the API.
 
-For supporting multiple keycloak realms, use **keycloak** for `backend_name` in the URLS below.
+For supporting keycloak realms, use **keycloak** for `backend_name` in the URLS below.
 
 The following endpoints are active in this implementation:
 
@@ -216,7 +219,7 @@ Example Response:
 
 - **NOTE:** The `site` must already exist on edx in order to create a configuration for that domain.
 
-Parameter definitons are as follows:
+Parameter definitions are as follows:
 - `name`: A display name used in the django admin. Can just be the org name
 - `enabled`: Whether or not to enable this SSO configuration for the site
 - `client_id`: your OAuth2 client id
@@ -260,13 +263,17 @@ In the Django admin:
 This process needs to be repeated for each `LMS` and `CMS` domain that exists.
 
 ## Notes about SSO Flow
-- When performing user onboarding through the [user-management API](https://docs.ibleducation.com/cisco/docs/ibl-user-api/), please make sure to add `"provider": "keycloak"` to the payload
+**On-Boarding Users**
+- When performing user onboarding through the dl-user-management API, please make sure to add `"provider": "keycloak"` to the payload
     - The users full name must also be provided as that is a required field for EdX
 - This will ensure an entry gets created for this user and backend in the django admin's `User Social Auth` table
 - If this is not done during onboarding, when the user logs in they will be presented with a dialog asking them to link their account
-- Please ensure users's are onboarded to edx _before_ they try and login to the LMS/CMS.
-    - Logging into the LMS could present the user with additional fields to fill out, depending on what's passed via the id token
-    - Logging into the CMS first will result in a "Page Not Found" because it will try to redirect to a `registration` url
+    - If you do not onboard the user (they don't exist on edx), then this shouldn't be a problem.
+
+**No On-Boarding Users**
+- Logging into the CMS first will result in a "Page Not Found" because it will try to redirect to a `registration` url
+    - User's who have a keycloak account but haven't created their edx account should always login through the LMS first
+- Logging into the LMS could present the user with additional fields to fill out, depending on what's passed via the id token (given name, family name, etc) and how the `REGISTRATION_EXTRA_FIELDS` is configured.
 
 
 

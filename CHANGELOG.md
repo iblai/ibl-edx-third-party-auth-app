@@ -1,6 +1,7 @@
 # ChangeLog
 
 ## 1.0.2 - 2020-12-08
+* Renames package `ibl-edx-third-party-auth`
 * Add CHANGELOG.md
 * Rename `CUSTOMER_USAGE.md` to `USAGE.md` to support `read.ibleducation.com`
 * Move README changes section into ChangeLog
