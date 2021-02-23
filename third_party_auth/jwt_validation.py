@@ -84,7 +84,7 @@ def _check_sub_sid(payload):
 
 
 def _check_events_claim(payload):
-    """Validate member name in events claim
+    """Validate events claim
 
     Step 5. Verify that the Logout Token contains an events Claim whose value
     is JSON object containing the member name
@@ -107,6 +107,7 @@ def _check_events_claim(payload):
     if not isinstance(events[claim], dict):
         raise JwtValidationError(
             '{} claim must contain a json object'.format(claim))
+
 
 def _check_nonce_not_present(payload):
     """Ensure nonce is _not_ present in claims

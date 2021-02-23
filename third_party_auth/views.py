@@ -7,6 +7,7 @@ from urllib import urlencode
 
 import edx_oauth2_provider
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseServerError
@@ -307,26 +308,53 @@ def _get_backchannel_logout_response(status):
     response['Pragma'] = 'no-cache'
     return response
 
-@csrf_exempt
-def kc_back_channel_logout(request):
-    """Back Channel logout for KeyCloak
 
+def _logout_user(user):
+    """Logs the user out of all their sessions
+
+    Not trivial in django since we don't have a user->session relationship,
+    only a session_id -> user relationship
+
+    We basically have to find all active user sessions, iterate over them
+    decoding each to find the ones(s) that match the user, then delete them
+
+    This is horrible performance wise.
     """
+    pass
 
-    token = request.body
+
+@csrf_exempt
+def back_channel_logout(request):
+    """Back Channel logout"""
+
+    token = request.POST.get('logout_token')
+    if not token:
+        return _get_backchannel_logout_response(400)
+
+    # Fetch the appropriate provider for the current site
     providers = list(provider.Registry.get_enabled_by_backend_name('keycloak'))
-    if not provider or len(providers) > 1:
+    if not providers or len(providers) > 1:
         log.error("Unable to get keycloak provider for back channel logout. "
                   "Number of providers found: %s", len(providers))
         return _get_backchannel_logout_response(501)
     oauth_provider= providers[0]
 
+    # Perform JWT Validation
     try:
         jwt_validation.validate_jwt(oauth_provider, token)
     except jwt_validation.JwtValidationError as e:
         log.error(e)
         return _get_backchannel_logout_response(400)
     except Exception:
+        log.error(e, exc_info=True)
         return _get_backchannel_logout_response(501)
 
-    return HttpResponse()
+    username = payload['sub']
+    try:
+        user = User.objects.get(username=username)
+        _logout_user(user)
+    except User.DoesNotExist:
+        log.error("User {} not found for back channel logout".format(username))
+        return _get_backchannel_logout_response(501)
+
+    return _get_backchannel_logout_response(200)
