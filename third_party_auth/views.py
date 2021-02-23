@@ -19,10 +19,12 @@ from social_core.utils import setting_name
 
 from openedx.core.djangoapps.user_authn.views.logout import LogoutView
 from openedx.core.djangoapps.user_authn.cookies import delete_logged_in_cookies
+
 from student.models import UserProfile
 from student.views import compose_and_send_activation_email
+
 import third_party_auth
-from third_party_auth import pipeline, provider
+from third_party_auth import pipeline, provider, jwt_validation
 
 from .models import SAMLConfiguration, SAMLProviderConfig
 
@@ -293,3 +295,38 @@ def check_session_rp_iframe(request):
         'logout_uri': reverse('logout') + '?relogin=1&next=',
     }
     return render(request, 'third_party_auth/check_session_iframe.html', context)
+
+
+def _get_backchannel_logout_response(status):
+    """Return an HttpResponse with status code and proper headers set
+
+    https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
+    """
+    response = HttpResponse(status=status)
+    response['Cache-Control'] = 'no-cache, no-store'
+    response['Pragma'] = 'no-cache'
+    return response
+
+@csrf_exempt
+def kc_back_channel_logout(request):
+    """Back Channel logout for KeyCloak
+
+    """
+
+    token = request.body
+    providers = list(provider.Registry.get_enabled_by_backend_name('keycloak'))
+    if not provider or len(providers) > 1:
+        log.error("Unable to get keycloak provider for back channel logout. "
+                  "Number of providers found: %s", len(providers))
+        return _get_backchannel_logout_response(501)
+    oauth_provider= providers[0]
+
+    try:
+        jwt_validation.validate_jwt(oauth_provider, token)
+    except jwt_validation.JwtValidationError as e:
+        log.error(e)
+        return _get_backchannel_logout_response(400)
+    except Exception:
+        return _get_backchannel_logout_response(501)
+
+    return HttpResponse()
