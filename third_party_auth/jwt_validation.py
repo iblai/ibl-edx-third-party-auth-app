@@ -42,7 +42,6 @@ def validate_jwt(provider, token):
         raise JwtValidationError(
             'Unable to find Social Auth User: %s', payload['sub'])
 
-    # TODO: Fetch last id token for current user
     last_id_token = _check_signature(
         pub_key_str, social_auth.extra_data.get('access_token'))
 
@@ -188,7 +187,7 @@ def _check_jti(payload):
     Step 7. Optionally verify that another Logout Token with the same jti value
     has not been recently received.
     """
-    pass
+    log.debug('Checking of jti is optional; not currently checking')
 
 
 def _check_iss(last_id_token, payload):
@@ -198,7 +197,7 @@ def _check_iss(last_id_token, payload):
     Claim in an ID Token issued for the current session or a recent session of
     this RP with the OP.
     """
-    pass
+    log.debug("Checking last iss is optional; not currently checking")
 
 
 def _check_sub(last_id_token, payload):
@@ -208,6 +207,8 @@ def _check_sub(last_id_token, payload):
     Claim in an ID Token issued for the current session or a recent session of
     this RP with the OP.
     """
+    log.debug("Checking last sub is optional; not currently checking")
+
 
 def _check_sid(last_id_token, payload):
     """Check that sid matches sid in most recent id_token
@@ -216,4 +217,4 @@ def _check_sid(last_id_token, payload):
     Claim in an ID Token issued for the current session or a recent session of
     this RP with the OP.
     """
-    pass
+    log.debug("Checking last sid is optional; not currently checking")
