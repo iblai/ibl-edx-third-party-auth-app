@@ -2,6 +2,7 @@
 Extra views required for SSO
 """
 import logging
+from importlib import import_module
 
 from urllib import urlencode
 
@@ -17,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from social_django.utils import load_strategy, load_backend, psa
 from social_django.views import complete
 from social_core.utils import setting_name
+from social_django.models import UserSocialAuth
 
 from openedx.core.djangoapps.user_authn.views.logout import LogoutView
 from openedx.core.djangoapps.user_authn.cookies import delete_logged_in_cookies
@@ -35,6 +37,7 @@ URL_NAMESPACE = getattr(settings, setting_name('URL_NAMESPACE'), None) or 'socia
 TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
 TPA_POST_LOGOUT_REDIRECT_FIELD = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_FIELD', 'redirect_uri')
 TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
+SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
 
 
 def inactive_user_view(request):
@@ -309,18 +312,11 @@ def _get_backchannel_logout_response(status):
     return response
 
 
-def _logout_user(user):
-    """Logs the user out of all their sessions
-
-    Not trivial in django since we don't have a user->session relationship,
-    only a session_id -> user relationship
-
-    We basically have to find all active user sessions, iterate over them
-    decoding each to find the ones(s) that match the user, then delete them
-
-    This is horrible performance wise.
-    """
-    pass
+def _logout_user(session_id):
+    """Logs the user out of all their sessions"""
+    store = SESSIONS_ENGINE.SessionStore()
+    store.delete(session_id)
+    log.info("Deleted Session %s", session_id)
 
 
 @csrf_exempt
@@ -331,7 +327,7 @@ def back_channel_logout(request):
     if not token:
         return _get_backchannel_logout_response(400)
 
-    # Fetch the appropriate provider for the current site
+    # Fetch the provider for the current site
     providers = list(provider.Registry.get_enabled_by_backend_name('keycloak'))
     if not providers or len(providers) > 1:
         log.error("Unable to get keycloak provider for back channel logout. "
@@ -339,22 +335,24 @@ def back_channel_logout(request):
         return _get_backchannel_logout_response(501)
     oauth_provider= providers[0]
 
-    # Perform JWT Validation
+    # Validate jwt
     try:
-        jwt_validation.validate_jwt(oauth_provider, token)
+        payload = jwt_validation.validate_jwt(oauth_provider, token)
     except jwt_validation.JwtValidationError as e:
         log.error(e)
         return _get_backchannel_logout_response(400)
-    except Exception:
+    except Exception as e:
         log.error(e, exc_info=True)
         return _get_backchannel_logout_response(501)
 
-    username = payload['sub']
     try:
-        user = User.objects.get(username=username)
-        _logout_user(user)
-    except User.DoesNotExist:
-        log.error("User {} not found for back channel logout".format(username))
+        social_auth = UserSocialAuth.objects.get(uid=payload['sub'])
+    except UserSocialAuth.DoesNotExist:
+        log.error("No UserSocialAuth exists for sub %s", payload['sub'])
         return _get_backchannel_logout_response(501)
+
+    user = social_auth.user
+    session_id = user.profile.get_meta().get('session_id')
+    _logout_user(session_id)
 
     return _get_backchannel_logout_response(200)
