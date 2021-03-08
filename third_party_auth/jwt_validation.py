@@ -1,6 +1,8 @@
 import time
 import logging
 
+import jwt
+
 from Cryptodome.PublicKey.RSA import importKey
 from jwkest.jwk import RSAKey
 from jwkest.jwt import JWT
@@ -21,6 +23,12 @@ class JwtValidationError(Exception):
     pass
 
 
+
+def get_user_from_sub(sub):
+    """Return the """
+    pass
+
+
 def _add_begin_end_key(pub_key):
     """Add the begin/end prefix to public key"""
     if not pub_key.startswith(BEGIN_KEY):
@@ -33,27 +41,52 @@ def validate_jwt(provider, token):
 
     https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
     """
-    pub_key_str = provider.get_setting("PUBLIC_KEY")
-    payload = _check_signature(pub_key_str, token)
 
+    options = {
+        'require_exp': False,
+        'verify_exp': False,
+        'require_iat': True,
+        'verify_aud': True,
+        'verify_iss': True,
+        'verify_signature': True,
+    }
+    public_key = _add_begin_end_key(provider.get_setting('PUBLIC_KEY'))
+    # backend.key is actually the backend's client_id
+    aud = provider.key
+    payload = jwt.decode(
+        token,
+        public_key,
+        True,
+        options=options,
+        leeway=0,
+        audience=aud,
+        algorithms=['RS256']
+    )
+    _check_nonce_not_present(payload)
+    _check_jti(payload)
+    _check_sub_sid(payload)
+    _check_events_claim(payload)
+    # _perform_optional_checks(provider, payload)
+
+    return payload
+
+
+def _perform_optional_checks(pub_key_str, provider, payload):
+    """Optional checks against previously issued id_token"""
     try:
-        social_auth = UserSocialAuth.objects.get(uid=payload['sub'])
+        # social_auth = UserSocialAuth.objects.get(uid=payload['sub'])
+        social_auth = UserSocialAuth.objects.get(user__username='common@user.com')
     except UserSocialAuth.DoesNotExist:
         raise JwtValidationError(
             'Unable to find Social Auth User: %s', payload['sub'])
 
     last_id_token = _check_signature(
-        pub_key_str, social_auth.extra_data.get('access_token'))
+        pub_key_str, social_auth.extra_data.get('id_token'))
 
-    _check_iss_aud_iat(provider, payload)
-    _check_sub_sid(payload)
-    _check_events_claim(payload)
-    _check_nonce_not_present(payload)
-    _check_jti(payload)
-    _check_iss(last_id_token, payload)
-    _check_sub(last_id_token, payload)
-    _check_sid(last_id_token, payload)
-    return payload
+    # These are optional checks, which could cause issues
+    _check_last_iss(last_id_token, payload)
+    _check_last_sub(last_id_token, payload)
+    _check_last_sid(last_id_token, payload)
 
 
 def _check_signature(pub_key_str, token):
@@ -190,7 +223,7 @@ def _check_jti(payload):
     log.debug('Checking of jti is optional; not currently checking')
 
 
-def _check_iss(last_id_token, payload):
+def _check_last_iss(last_id_token, payload):
     """Check that iss matches iss in current session's id token
 
     Step 8. Optionally verify that the iss Logout Token Claim matches the iss
@@ -200,7 +233,7 @@ def _check_iss(last_id_token, payload):
     log.debug("Checking last iss is optional; not currently checking")
 
 
-def _check_sub(last_id_token, payload):
+def _check_last_sub(last_id_token, payload):
     """Check that sub matches sub from current session's id token
 
     Step 9. Optionally verify that any sub Logout Token Claim matches the sub
@@ -210,7 +243,7 @@ def _check_sub(last_id_token, payload):
     log.debug("Checking last sub is optional; not currently checking")
 
 
-def _check_sid(last_id_token, payload):
+def _check_last_sid(last_id_token, payload):
     """Check that sid matches sid in most recent id_token
 
     Step 10. Optionally verify that any sid Logout Token Claim matches the sid
