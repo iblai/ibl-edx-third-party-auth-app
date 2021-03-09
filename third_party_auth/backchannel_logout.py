@@ -5,6 +5,7 @@ import jwt
 
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_out
+from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -17,10 +18,17 @@ SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
 
 
 def _get_user_from_sub(sub):
-    """Return the user profile object from token sub"""
-    email = sub.split(':')[-1]
-    social_auth = UserSocialAuth.objects.select_related('user__profile').get(user__email=email)
-    return social_auth.user
+    """Return the Django User from token sub
+
+    Args:
+        sub (str): subject id from token
+
+    Returns:
+        django.contrib.auth.User: User from sub username
+    """
+    username = sub.split(':')[-1]
+    user = User.objects.select_related('profile').get(username=username)
+    return user
 
 
 def _get_backchannel_logout_response(status):
@@ -101,8 +109,8 @@ def back_channel_logout(request):
     try:
         user = _get_user_from_sub(payload['sub'])
         profile = user.profile
-    except UserSocialAuth.DoesNotExist:
-        log.error("No UserSocialAuth exists for sub %s", payload['sub'])
+    except User.DoesNotExist:
+        log.error("No User exists for sub %s", payload['sub'])
         return _get_backchannel_logout_response(501)
 
     meta = profile.get_meta()
