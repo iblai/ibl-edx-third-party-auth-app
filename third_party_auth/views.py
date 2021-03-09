@@ -302,6 +302,6 @@ def check_session_rp_iframe(request):
 
 
 @csrf_exempt
-def back_channel_logout(request):
+def back_channel_logout(request, backend):
     """Back Channel logout"""
-    return backchannel_logout.back_channel_logout(request)
+    return backchannel_logout.back_channel_logout(request, backend)
