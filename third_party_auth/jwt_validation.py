@@ -23,12 +23,6 @@ class JwtValidationError(Exception):
     pass
 
 
-
-def get_user_from_sub(sub):
-    """Return the """
-    pass
-
-
 def _add_begin_end_key(pub_key):
     """Add the begin/end prefix to public key"""
     if not pub_key.startswith(BEGIN_KEY):
@@ -42,27 +36,29 @@ def validate_jwt(provider, token):
     https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
     """
 
+    log.info(token)
     options = {
         'require_exp': False,
-        'verify_exp': False,
         'require_iat': True,
+        'verify_iat': True,
         'verify_aud': True,
         'verify_iss': True,
         'verify_signature': True,
     }
     public_key = _add_begin_end_key(provider.get_setting('PUBLIC_KEY'))
-    # backend.key is actually the backend's client_id
     aud = provider.key
     payload = jwt.decode(
         token,
-        public_key,
-        True,
+        key=public_key,
+        verify=True,
         options=options,
-        leeway=0,
+        issuer=provider.get_setting('ISS'),
         audience=aud,
         algorithms=['RS256']
     )
     _check_nonce_not_present(payload)
+    # jwt.decode doesn't validate awt slack, only that it's an int
+    _check_iat(payload['iat'])
     _check_jti(payload)
     _check_sub_sid(payload)
     _check_events_claim(payload)
@@ -87,71 +83,6 @@ def _perform_optional_checks(pub_key_str, provider, payload):
     _check_last_iss(last_id_token, payload)
     _check_last_sub(last_id_token, payload)
     _check_last_sid(last_id_token, payload)
-
-
-def _check_signature(pub_key_str, token):
-    """Validate JWT signature and return validated payload"""
-    pub_key_str = _add_begin_end_key(pub_key_str)
-    pub_key = RSAKey(key=importKey(pub_key_str))
-    # NOTE: We don't have the kid of stored public key, so we
-    # assume the kid from incoming token is for this key
-    kid = JWT().unpack(token).headers['kid']
-    pub_key.kid = kid
-
-    try:
-        # Signature checked here
-        payload = JWS().verify_compact(token, keys=[pub_key])
-    except (BadSignature, NoSuitableSigningKeys) as e:
-        log.error(e)
-        raise
-
-    return payload
-
-
-def _check_iss_aud_iat(provider, payload):
-    """Validate iss, aud and iat claims
-
-    Step 3. Validate the iss, aud, and iat Claims in the same way they are
-    validated in ID Tokens.
-    """
-    iss = provider.get_setting('ISS')
-    client_id = provider.key
-
-    # Must contain these claims
-    keys = set(('iss', 'iat', 'aud'))
-    diff = keys - set(payload.keys())
-    if diff:
-        raise JwtValidationError('Missing JWT Claims: %s', diff)
-
-    _check_iat(payload['iat'])
-    _check_iss(iss, payload['iss'])
-    _check_aud(client_id, payload['aud'], payload.get('azp', None))
-
-
-def _check_aud(client_id, aud, azp):
-    """Validate aud claim"""
-    # Audience could be a list
-    if not isinstance(aud, list):
-        aud = [aud]
-
-    if client_id not in aud:
-        raise JwtValidationError(
-            'Provider client_id (%s) not in aud (%s)', client_id, aud
-        )
-
-    if azp is not None and client_id != azp:
-        raise JwtValidationError(
-            'azp claim present (%s) but does not equal provider client_id '
-            '(%s)', azp, client_id)
-
-
-def _check_iss(iss, payload):
-    """Validate ISS claim"""
-    if iss != payload['iss']:
-        raise JwtValidationError(
-            "JWT iss claim (%s) does not match provider iss (%s)",
-            payload['iss'], iss
-        )
 
 
 def _check_iat(iat, slack=120):
