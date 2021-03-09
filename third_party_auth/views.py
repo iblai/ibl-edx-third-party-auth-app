@@ -27,7 +27,7 @@ from student.models import UserProfile
 from student.views import compose_and_send_activation_email
 
 import third_party_auth
-from third_party_auth import pipeline, provider, jwt_validation
+from third_party_auth import pipeline, provider, jwt_validation, backchannel_logout
 
 from .models import SAMLConfiguration, SAMLProviderConfig
 
@@ -301,58 +301,7 @@ def check_session_rp_iframe(request):
     return render(request, 'third_party_auth/check_session_iframe.html', context)
 
 
-def _get_backchannel_logout_response(status):
-    """Return an HttpResponse with status code and proper headers set
-
-    https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
-    """
-    response = HttpResponse(status=status)
-    response['Cache-Control'] = 'no-cache, no-store'
-    response['Pragma'] = 'no-cache'
-    return response
-
-
-def _logout_user(session_id):
-    """Logs the user out of all their sessions"""
-    store = SESSIONS_ENGINE.SessionStore()
-    store.delete(session_id)
-    log.info("Deleted Session %s", session_id)
-
-
 @csrf_exempt
 def back_channel_logout(request):
     """Back Channel logout"""
-
-    token = request.POST.get('logout_token')
-    if not token:
-        return _get_backchannel_logout_response(400)
-
-    # Fetch the provider for the current site
-    providers = list(provider.Registry.get_enabled_by_backend_name('keycloak'))
-    if not providers or len(providers) > 1:
-        log.error("Unable to get keycloak provider for back channel logout. "
-                  "Number of providers found: %s", len(providers))
-        return _get_backchannel_logout_response(501)
-    oauth_provider= providers[0]
-
-    # Validate jwt
-    try:
-        payload = jwt_validation.validate_jwt(oauth_provider, token)
-    except jwt_validation.JwtValidationError as e:
-        log.error(e)
-        return _get_backchannel_logout_response(400)
-    except Exception as e:
-        log.error(e, exc_info=True)
-        return _get_backchannel_logout_response(501)
-
-    try:
-        social_auth = UserSocialAuth.objects.get(uid=payload['sub'])
-    except UserSocialAuth.DoesNotExist:
-        log.error("No UserSocialAuth exists for sub %s", payload['sub'])
-        return _get_backchannel_logout_response(501)
-
-    user = social_auth.user
-    session_id = user.profile.get_meta().get('session_id')
-    _logout_user(session_id)
-
-    return _get_backchannel_logout_response(200)
+    return backchannel_logout.back_channel_logout(request)
