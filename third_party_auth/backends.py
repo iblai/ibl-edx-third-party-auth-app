@@ -1,6 +1,9 @@
+import logging
 import jwt
 
 from social_core.backends.oauth import BaseOAuth2
+
+log = logging.getLogger(__name__)
 
 
 class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
@@ -63,7 +66,7 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
     """
 
     name = 'keycloak'
-    ID_KEY = 'sub'
+    ID_KEY = 'email'
     ACCESS_TOKEN_METHOD = 'POST'
 
     def authorization_url(self):
