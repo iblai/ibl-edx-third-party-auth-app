@@ -17,18 +17,21 @@ log = logging.getLogger(__name__)
 SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
 
 
-def _get_user_from_sub(sub):
-    """Return the Django User from token sub
+def _get_user_from_sub(sub, backend):
+    """Return the Django User based on sub from token
 
     Args:
         sub (str): subject id from token
+        backend (str): OAuth backend name
 
     Returns:
-        django.contrib.auth.User: User from sub username
+        django.contrib.auth.User: User with UserSocialAuth.uid = username
     """
+    # NOTE: This sub format represents a federated user from keycloak
     username = sub.split(':')[-1]
-    user = User.objects.select_related('profile').get(username=username)
-    return user
+    social_auth = UserSocialAuth.objects.select_related('user__profile').get(
+        uid=username, provider=backend)
+    return social_auth.user
 
 
 def _get_backchannel_logout_response(status):
@@ -75,23 +78,23 @@ def _logout_of_sessions(sessions, user, request):
     profile.set_meta(meta)
     profile.save()
 
-def _get_current_provider():
+def _get_current_provider(backend):
     """Return the provider for the current site"""
-    providers = list(provider.Registry.get_enabled_by_backend_name('keycloak'))
+    providers = list(provider.Registry.get_enabled_by_backend_name(backend))
     if not providers or len(providers) > 1:
         raise ValueError("No or Multiple active providers found: %s", len(providers))
     oauth_provider = providers[0]
     return oauth_provider
 
 
-def back_channel_logout(request):
+def back_channel_logout(request, backend):
     """Back Channel logout"""
     token = request.POST.get('logout_token')
     if not token:
         return _get_backchannel_logout_response(400)
 
     try:
-        oauth_provider = _get_current_provider()
+        oauth_provider = _get_current_provider(backend)
     except ValueError as e:
         log.error(e)
         return _get_backchannel_logout_response(501)
@@ -107,10 +110,10 @@ def back_channel_logout(request):
         return _get_backchannel_logout_response(501)
 
     try:
-        user = _get_user_from_sub(payload['sub'])
+        user = _get_user_from_sub(payload['sub'], backend)
         profile = user.profile
-    except User.DoesNotExist:
-        log.error("No User exists for sub %s", payload['sub'])
+    except UserSocialAuth.DoesNotExist:
+        log.error("No UserSocialAuth.uid exists for sub %s", payload['sub'])
         return _get_backchannel_logout_response(501)
 
     meta = profile.get_meta()
