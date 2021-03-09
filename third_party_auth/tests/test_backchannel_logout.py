@@ -1,11 +1,19 @@
+import json
 import mock
 import pytest
 
+from django.urls import reverse
 from django.contrib.auth.models import User
-from student.tests.factories import UserFactory
+from django.test import RequestFactory, TestCase
+from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 
-from third_party_auth.tests.test_views import BaseTestCase
+from crum import CurrentRequestUserMiddleware
+from student.tests.factories import UserFactory
+from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
+
 from third_party_auth import backchannel_logout as bcl
+
+from social_django.models import UserSocialAuth
 
 
 @pytest.fixture(autouse=True)
@@ -20,20 +28,80 @@ def user():
     return user
 
 
+class BaseTestCase(TestCase, ThirdPartyAuthTestMixin):
+    @classmethod
+    def setUpClass(cls):
+        super(BaseTestCase, cls).setUpClass()
+        cls.site = SiteFactory(domain='0.testserver.fake')
+        cls.user = UserFactory()
+        cls.factory = RequestFactory()
+
+    @classmethod
+    def _setup_request(cls, path, post_dict):
+        cls.request = cls.factory.post(path, post_dict)
+        cls.request.site = cls.site
+
+        # OAuth2ProviderConfig.enabled_for_current site uses crum and also
+        # users request.get_host(), so need to set SERVER_NAME and use CRUM
+        cls.request.META['SERVER_NAME'] = cls.site.domain
+        crm = CurrentRequestUserMiddleware()
+        crm.process_request(cls.request)
+
+        cls.backend = cls.configure_keycloak_provider(
+            enabled=True,
+            visible=True,
+            key='edx',
+            site=cls.site,
+            other_settings=json.dumps({
+                'END_SESSION_URL': 'https://end.session.com/endpoint',
+                'TARGET_OP': 'https://{}'.format(cls.site.domain),
+                'CHECK_SESSION_URL': 'https://{}/check-session'.format(cls.site.domain),
+            }))
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
+
 def test_get_profile_from_sub_returns_profile(user):
     """If sub has format f:<something>:username, returns profile for username"""
     email = 'someone@test.com'
+    provider = 'keycloak'
+    UserSocialAuth.objects.create(uid=email, provider=provider, user=user)
     sub = 'f:something:{}'.format(email)
-    found_user = bcl._get_user_from_sub(sub)
+    found_user = bcl._get_user_from_sub(sub, provider)
     assert found_user == user
 
 
 def test_get_profile_from_sub_raises_not_found(user):
     """If username not found, raises DoesNotExist"""
     email = 'not_found@test.com'
+    provider = 'keycloak'
     sub = 'f:something:{}'.format(email)
-    with pytest.raises(User.DoesNotExist):
-        profile = bcl._get_user_from_sub(sub)
+    with pytest.raises(UserSocialAuth.DoesNotExist):
+        bcl._get_user_from_sub(sub, provider)
+
+
+def test_get_profile_from_sub_raises_multiple_found(user):
+    """If multiple objects with UID"""
+    email = 'not_found@test.com'
+    provider = 'keycloak'
+    sub = 'f:something:{}'.format(email)
+    with pytest.raises(UserSocialAuth.DoesNotExist):
+        bcl._get_user_from_sub(sub, provider)
+
+
+@pytest.mark.skip
+def test_logout_of_sessions_no_sessions_exist(user):
+    """If no sessions exist, message logged and none are deleted"""
+    sessions = {'session_id': None, 'cms_session_id': None}
+    request = RequestFactory()
+    bcl._logout_of_sessions(sessions, )
+
+
+@pytest.mark.skip
+def test_logout_of_sessions_all_sessions_deleted():
+    pass
 
 
 @pytest.mark.skip
@@ -46,17 +114,26 @@ def test_get_current_provider():
     pass
 
 
-@pytest.mark.skip
-def test_logout_of_sessions_no_sessions_exist():
-    pass
-
-
-@pytest.mark.skip
-def test_logout_of_sessions_all_sessions_deleted():
-    pass
-
-
-@pytest.mark.skip
 @mock.patch('third_party_auth.provider._PSA_OAUTH2_BACKENDS', ['keycloak'])
 class TestBackchannelLogoutView(BaseTestCase):
-    pass
+    @classmethod
+    def setUpClass(cls):
+        super(TestBackchannelLogoutView, cls).setUpClass()
+        cls.url = reverse('tpa-backchannel-logout', kwargs={'provider': 'keycloak'})
+        cls.provider = 'keycloak'
+
+    def test_token_not_provided_returns_400(self):
+        """Test no logout_token provided then returns 400"""
+        self._setup_request(self.url, {})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 400
+
+    def test_no_providers_available_returns_500(self):
+        """If no providers are available for backend, returns 501"""
+        self._setup_request(self.url, {'logout_token': 'something'})
+        self.backend.delete()
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 501
+        assert "No or Multiple" in self._caplog.messages[-1]
+
+
