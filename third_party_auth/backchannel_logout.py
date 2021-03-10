@@ -45,7 +45,7 @@ def _get_backchannel_logout_response(status):
     return response
 
 
-def _logout_of_sessions(sessions, user, request):
+def _logout_of_sessions(user, request):
     """Log user our of all sessions and emit a user_logged_out signal
 
     NOTE: "session_id" is the LMS session, "cms_session_id" is for the CMS
@@ -55,6 +55,11 @@ def _logout_of_sessions(sessions, user, request):
         user (django.contrib.auth.User): Django User
         request (Request): Django request
     """
+    meta = user.profile.get_meta()
+    # meta keys that contain session_id's
+    keys = ['session_id', 'cms_session_id']
+    sessions = {key: meta.get(key) for key in keys}
+
     store = SESSIONS_ENGINE.SessionStore()
     session_exists = {key: store.exists(session_id) for key, session_id in sessions.items()}
     has_session = any(session_exists.values())
@@ -68,8 +73,8 @@ def _logout_of_sessions(sessions, user, request):
             user.email)
         return
 
+    # Delete sessions and remove them from profile meta
     profile = user.profile
-    meta = profile.get_meta()
     for name, session_id in sessions.items():
         if session_exists[name]:
             meta[name] = None
@@ -117,10 +122,6 @@ def back_channel_logout(request, backend):
         log.error("No UserSocialAuth.uid exists for sub %s", payload['sub'])
         return _get_backchannel_logout_response(501)
 
-    meta = profile.get_meta()
-    # meta keys that contain session_id's
-    keys = ['session_id', 'cms_session_id']
-    session_ids = {key: meta.get(key) for key in keys}
-    _logout_of_sessions(session_ids, user, request)
+    _logout_of_sessions(user, request)
 
     return _get_backchannel_logout_response(200)
