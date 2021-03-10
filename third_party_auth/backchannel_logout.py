@@ -74,7 +74,7 @@ def _logout_of_sessions(sessions, user, request):
         if session_exists[name]:
             meta[name] = None
             store.delete(session_id)
-            log.info("Deleted Session %s %s", name, session_id)
+            log.debug("Deleted Session %s %s", name, session_id)
     profile.set_meta(meta)
     profile.save()
 

@@ -119,6 +119,7 @@ def test_get_current_provider():
 
 @mock.patch('third_party_auth.provider._PSA_OAUTH2_BACKENDS', ['keycloak'])
 class TestBackchannelLogoutView(BaseTestCase):
+
     @classmethod
     def setUpClass(cls):
         super(TestBackchannelLogoutView, cls).setUpClass()
@@ -185,3 +186,27 @@ class TestBackchannelLogoutView(BaseTestCase):
         resp = bcl.back_channel_logout(self.request, self.provider)
         assert resp.status_code == 501
         assert "Bad things Mikey" in self._caplog.messages[-1]
+
+    @mock.patch('third_party_auth.backchannel_logout._get_user_from_sub')
+    @mock.patch('third_party_auth.backchannel_logout.jwt_validation.validate_jwt')
+    def test_no_social_auth_exists_returns_501(self, mock_jwt_val, mock_user_sub):
+        """If UserSocialAuth.DoesNotExist raised, return 501"""
+        mock_jwt_val.return_value = {'sub': 'f:something:not_found@test.com'}
+        mock_user_sub.side_effect = UserSocialAuth.DoesNotExist()
+
+        self._setup_request(self.url, {'logout_token': 'something'})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 501
+        assert "No UserSocialAuth" in self._caplog.messages[-1]
+
+    @mock.patch('third_party_auth.backchannel_logout._get_user_from_sub')
+    @mock.patch('third_party_auth.backchannel_logout.jwt_validation.validate_jwt')
+    def test_no_active_sessions_profile_unchanged_returns_200(self, mock_jwt_val, mock_user_sub):
+        """If user has no active sessions, returns 200 and profile meta not changed"""
+        mock_jwt_val.return_value = {'sub': 'f:something:not_found@test.com'}
+        mock_user_sub.return_value = self.user
+
+        self._setup_request(self.url, {'logout_token': 'something'})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 200
+        assert self.user.profile.get_meta() == {}
