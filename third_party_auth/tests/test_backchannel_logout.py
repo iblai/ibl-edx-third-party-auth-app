@@ -1,3 +1,4 @@
+from importlib import import_module
 import json
 import mock
 import pytest
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.contrib.auth import login
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings, Client
 from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 
 from crum import CurrentRequestUserMiddleware
@@ -21,6 +22,9 @@ from social_django.models import UserSocialAuth
 
 LMS_FEATURES = settings.FEATURES.copy()
 LMS_FEATURES['PREVENT_CONCURRENT_LOGINS'] = True
+
+SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
+SESSION_STORE = SESSIONS_ENGINE.SessionStore()
 
 
 @pytest.fixture(autouse=True)
@@ -221,14 +225,18 @@ class TestLogoutOfSessions(BaseTestCase):
         self.client.force_login(self.user)
         # Client now has a session in the lms
         self.user.profile.refresh_from_db()
-        assert self.user.profile.get_meta().get('session_id') is not None
-        assert 'cms_session_id' not in self.user.profile.get_meta()
+        meta = self.user.profile.get_meta()
+        assert meta.get('session_id') is not None
+        assert 'cms_session_id' not in meta
+        assert SESSION_STORE.exists(meta['session_id'])
 
         self._setup_request(self.url, {'logout_token': 'something'})
         bcl._logout_of_sessions(self.user, self.request)
 
+        self.user.profile.refresh_from_db()
         mock_logged_out.send.assert_called_once()
         assert self.user.profile.get_meta() == {'session_id': None}
+        assert not SESSION_STORE.exists(meta['session_id'])
 
     @override_settings(IBL_CMS_PREVENT_CONCURRENT_LOGINS=True)
     @mock.patch('third_party_auth.backchannel_logout.user_logged_out')
@@ -236,12 +244,44 @@ class TestLogoutOfSessions(BaseTestCase):
         """If active CMS session, it's removed from profile and user logged out"""
         self.client.force_login(self.user)
         self.user.profile.refresh_from_db()
+        meta = self.user.profile.get_meta()
         # Client now has a session in the cms
-        assert self.user.profile.get_meta().get('cms_session_id') is not None
-        assert 'session_id' not in self.user.profile.get_meta()
+        assert meta.get('cms_session_id') is not None
+        assert 'session_id' not in meta
+        assert SESSION_STORE.exists(meta['cms_session_id'])
+
+        self._setup_request(self.url, {'logout_token': 'something'})
+        bcl._logout_of_sessions(self.user, self.request)
+
+        self.user.profile.refresh_from_db()
+        mock_logged_out.send.assert_called_once()
+        assert self.user.profile.get_meta() == {'cms_session_id': None}
+        assert not SESSION_STORE.exists(meta['cms_session_id'])
+
+    @mock.patch('third_party_auth.backchannel_logout.user_logged_out')
+    def test_active_lms_and_cms_sessions_are_removed(self, mock_logged_out):
+        """If active LMS and CMS sessions, they're rm'd from profile and user logged out"""
+        # Simulate a login in the LMS
+        with override_settings(FEATURES=LMS_FEATURES):
+            self.client.force_login(self.user)
+        # Simulate a login in the CMS (New Client so it doesn't reuse session)
+        with override_settings(IBL_CMS_PREVENT_CONCURRENT_LOGINS=True):
+            client2 = Client()
+            client2.force_login(self.user)
+        self.user.profile.refresh_from_db()
+        meta = self.user.profile.get_meta()
+
+        # Client now has a session in cms and lms
+        assert meta.get('cms_session_id') is not None
+        assert meta.get('session_id') is not None
+        assert SESSION_STORE.exists(meta['cms_session_id'])
+        assert SESSION_STORE.exists(meta['session_id'])
 
         self._setup_request(self.url, {'logout_token': 'something'})
         bcl._logout_of_sessions(self.user, self.request)
 
         mock_logged_out.send.assert_called_once()
-        assert self.user.profile.get_meta() == {'cms_session_id': None}
+        self.user.profile.refresh_from_db()
+        assert self.user.profile.get_meta() == {'cms_session_id': None, 'session_id': None}
+        assert not SESSION_STORE.exists(meta['cms_session_id'])
+        assert not SESSION_STORE.exists(meta['session_id'])
