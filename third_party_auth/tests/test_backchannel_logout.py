@@ -206,7 +206,7 @@ class TestLogoutOfSessions(BaseTestCase):
         bcl._logout_of_sessions(self.user, self.request)
         self.user.profile.refresh_from_db()
         assert self.user.profile.get_meta() == {}
-        assert "Logout request sent" in self._caplog.messages[-1]
+        assert "No active sessions exist" in self._caplog.messages[-1]
 
     @override_settings(FEATURES=LMS_FEATURES)
     @mock.patch('third_party_auth.backchannel_logout.user_logged_out')
