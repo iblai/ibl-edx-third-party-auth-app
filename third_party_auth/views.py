@@ -2,11 +2,13 @@
 Extra views required for SSO
 """
 import logging
+from importlib import import_module
 
 from urllib import urlencode
 
 import edx_oauth2_provider
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from django.urls import reverse
 from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseServerError
@@ -16,13 +18,16 @@ from django.views.decorators.csrf import csrf_exempt
 from social_django.utils import load_strategy, load_backend, psa
 from social_django.views import complete
 from social_core.utils import setting_name
+from social_django.models import UserSocialAuth
 
 from openedx.core.djangoapps.user_authn.views.logout import LogoutView
 from openedx.core.djangoapps.user_authn.cookies import delete_logged_in_cookies
+
 from student.models import UserProfile
 from student.views import compose_and_send_activation_email
+
 import third_party_auth
-from third_party_auth import pipeline, provider
+from third_party_auth import pipeline, provider, jwt_validation, backchannel_logout
 
 from .models import SAMLConfiguration, SAMLProviderConfig
 
@@ -32,6 +37,7 @@ URL_NAMESPACE = getattr(settings, setting_name('URL_NAMESPACE'), None) or 'socia
 TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
 TPA_POST_LOGOUT_REDIRECT_FIELD = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_FIELD', 'redirect_uri')
 TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
+SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
 
 
 def inactive_user_view(request):
@@ -293,3 +299,9 @@ def check_session_rp_iframe(request):
         'logout_uri': reverse('logout') + '?relogin=1&next=',
     }
     return render(request, 'third_party_auth/check_session_iframe.html', context)
+
+
+@csrf_exempt
+def back_channel_logout(request, backend):
+    """Back Channel logout"""
+    return backchannel_logout.back_channel_logout(request, backend)

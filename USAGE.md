@@ -16,8 +16,16 @@ To setup a new realm in KeyCloak and enable it for EdX, perform the following st
 - click `Save`
 - Change `Access Type` to `confidential`
 - In the `Valid redirect URIs` field, create the following entries for the LMS and CMS:
-    - `https://lms.domain.com/*`
-    - `https://studio.domain.com/*`
+    - `https://lms.domain.com/auth/complete/keycloak/*`
+    - `https://lms.domain.com`
+    - `https://studio.domain.com/auth/complete/keycloak/*`
+    - `https://studio.domain.com`
+        - You ultimately need two entries for each domain you want this realm to provide authentication for:
+            - `https://some.domain.com`
+            - `https://some.domain.com/auth/complete/keycloak/*`
+- In the `Backchannel Logout URL` field enter:
+    - `https://some.domain.com/auth/back_channel_logout/keycloak`
+    - This is where OIDC backchannel logout requests will be sent
 - In `Web Origins` add `+` (literally, just a `+` symbol)
 - Expand `Fine Grain OpenID Connect Configuration`
     - Change `User Info Signed Response Algorithm` to `RS256`
@@ -52,6 +60,7 @@ You will need various information in edx from the keycloak realm. First make sur
         - `token_endpoint`
         - `end_session_endpoint`
         - `check_session_iframe`
+        - `issuer`
 - OAuth2 Credentials:
     - Select `Clients` on the left
     - Select the `edx` client (or whatever you named it)
@@ -158,7 +167,8 @@ Example Response:
             "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
             "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
             "TARGET_OP": "https://your.keycloak.com",
-            "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
+            "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
+            "ISS": "https://your.keycloak.com/auth/realms/your_org"
         },
         "secret": "some-secret-value",
         "site": "your.domain.com",
@@ -185,7 +195,8 @@ Example Response:
         "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
         "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
         "TARGET_OP": "https://your.keycloak.com",
-        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
+        "ISS": "https://your.keycloak.com/auth/realms/your_org"
     },
     "secret": "some-secret-value",
     "site": "your.domain.com",
@@ -210,7 +221,8 @@ Example Response:
         "AUTHORIZATION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/auth",
         "ACCESS_TOKEN_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/token",
         "TARGET_OP": "https://your.keycloak.com",
-        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout"
+        "END_SESSION_URL": "https://your.keycloak.com/auth/realms/your_org/protocol/openid-connect/logout",
+        "ISS": "https://your.keycloak.com/auth/realms/your_org"
 
     },
     "site": "your.edx.subdomain.com"
@@ -231,6 +243,7 @@ Parameter definitions are as follows:
 - `END_SESSION_URL`: the end session url of OP
 - `TARGET_OP`: https://your.auth.server.com (protocol + auth server domain)
 - `CHECK_SESSION_URL`: check session endpoint of OP. Allows RP to direct an iframe to this endpoint to check session status at the OP
+- `ISS`: The issuer to validate logout token against during backchannel logout
 
 The `client_id`, `secret`, and values from `other_settings` can be found on keycloak as described in the [Finding Links and Information](#finding-links-and-information) section.
 
