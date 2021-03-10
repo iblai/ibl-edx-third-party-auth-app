@@ -10,8 +10,10 @@ from third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 from crum import CurrentRequestUserMiddleware
 from student.tests.factories import UserFactory
 from openedx.core.djangoapps.site_configuration.tests.factories import SiteFactory
+from jwt.exceptions import InvalidTokenError
 
 from third_party_auth import backchannel_logout as bcl
+from third_party_auth.jwt_validation import JwtValidationError
 
 from social_django.models import UserSocialAuth
 
@@ -36,28 +38,27 @@ class BaseTestCase(TestCase, ThirdPartyAuthTestMixin):
         cls.user = UserFactory()
         cls.factory = RequestFactory()
 
-    @classmethod
-    def _setup_request(cls, path, post_dict):
-        cls.request = cls.factory.post(path, post_dict)
-        cls.request.site = cls.site
+    def _setup_request(self, path, post_dict):
+        self.request = self.factory.post(path, post_dict)
+        self.request.site = self.site
 
         # OAuth2ProviderConfig.enabled_for_current site uses crum and also
         # users request.get_host(), so need to set SERVER_NAME and use CRUM
-        cls.request.META['SERVER_NAME'] = cls.site.domain
+        self.request.META['SERVER_NAME'] = self.site.domain
         crm = CurrentRequestUserMiddleware()
-        crm.process_request(cls.request)
+        crm.process_request(self.request)
 
-        cls.backend = cls.configure_keycloak_provider(
+        self.backend = self.configure_keycloak_provider(
             enabled=True,
             visible=True,
             key='edx',
-            site=cls.site,
+            site=self.site,
             other_settings=json.dumps({
                 'PUBLIC_KEY': 'test',
                 'ISS': 'https://auth.com',
                 'END_SESSION_URL': 'https://end.session.com/endpoint',
-                'TARGET_OP': 'https://{}'.format(cls.site.domain),
-                'CHECK_SESSION_URL': 'https://{}/check-session'.format(cls.site.domain),
+                'TARGET_OP': 'https://{}'.format(self.site.domain),
+                'CHECK_SESSION_URL': 'https://{}/check-session'.format(self.site.domain),
             }))
 
     @pytest.fixture(autouse=True)
@@ -158,6 +159,29 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 501
         assert "No or Multiple" in self._caplog.messages[-1]
 
+    @mock.patch('third_party_auth.backchannel_logout.jwt_validation.validate_jwt')
+    def test_validate_jwt_invalid_token_error_returns_400(self, mock_jwt_val):
+        """If InvalidTokenError is raised it returns a 400"""
+        mock_jwt_val.side_effect = InvalidTokenError('Bad things Mikey, bad things')
+        self._setup_request(self.url, {'logout_token': 'something'})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 400
+        assert "Bad things Mikey" in self._caplog.messages[-1]
 
+    @mock.patch('third_party_auth.backchannel_logout.jwt_validation.validate_jwt')
+    def test_validate_jwt_jwt_validation_error_returns_400(self, mock_jwt_val):
+        """If JwtValidationError is raised it returns a 400"""
+        mock_jwt_val.side_effect = JwtValidationError('Bad things Mikey, bad things')
+        self._setup_request(self.url, {'logout_token': 'something'})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 400
+        assert "Bad things Mikey" in self._caplog.messages[-1]
 
-
+    @mock.patch('third_party_auth.backchannel_logout.jwt_validation.validate_jwt')
+    def test_validate_jwt_any_other_exception_returns_501(self, mock_jwt_val):
+        """If any other exception occurs in validate_jwt, return a 501"""
+        mock_jwt_val.side_effect = ValueError('Bad things Mikey, bad things')
+        self._setup_request(self.url, {'logout_token': 'something'})
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 501
+        assert "Bad things Mikey" in self._caplog.messages[-1]

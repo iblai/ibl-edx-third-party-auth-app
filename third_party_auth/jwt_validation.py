@@ -36,7 +36,6 @@ def validate_jwt(provider, token):
     https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
     """
 
-    log.info(token)
     options = {
         'require_exp': False,
         'require_iat': True,
