@@ -53,6 +53,8 @@ class BaseTestCase(TestCase, ThirdPartyAuthTestMixin):
             key='edx',
             site=cls.site,
             other_settings=json.dumps({
+                'PUBLIC_KEY': 'test',
+                'ISS': 'https://auth.com',
                 'END_SESSION_URL': 'https://end.session.com/endpoint',
                 'TARGET_OP': 'https://{}'.format(cls.site.domain),
                 'CHECK_SESSION_URL': 'https://{}/check-session'.format(cls.site.domain),
@@ -119,7 +121,7 @@ class TestBackchannelLogoutView(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         super(TestBackchannelLogoutView, cls).setUpClass()
-        cls.url = reverse('tpa-backchannel-logout', kwargs={'provider': 'keycloak'})
+        cls.url = reverse('tpa-backchannel-logout', kwargs={'backend': 'keycloak'})
         cls.provider = 'keycloak'
 
     def test_token_not_provided_returns_400(self):
@@ -135,5 +137,27 @@ class TestBackchannelLogoutView(BaseTestCase):
         resp = bcl.back_channel_logout(self.request, self.provider)
         assert resp.status_code == 501
         assert "No or Multiple" in self._caplog.messages[-1]
+
+    def test_more_than_1_provider_available_returns_500(self):
+        """If > 1 provider is found, return 501"""
+        self._setup_request(self.url, {'logout_token': 'something'})
+        self.configure_keycloak_provider(
+            enabled=True,
+            visible=True,
+            slug="edx",
+            key='edx',
+            site=self.site,
+            other_settings=json.dumps({
+                'PUBLIC_KEY': 'test',
+                'ISS': 'https://auth.com',
+                'END_SESSION_URL': 'https://end.session.com/endpoint2',
+                'TARGET_OP': 'https://{}'.format(self.site.domain),
+                'CHECK_SESSION_URL': 'https://{}/check-session2'.format(self.site.domain),
+            }))
+        resp = bcl.back_channel_logout(self.request, self.provider)
+        assert resp.status_code == 501
+        assert "No or Multiple" in self._caplog.messages[-1]
+
+
 
 

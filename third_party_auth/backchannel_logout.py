@@ -82,7 +82,8 @@ def _get_current_provider(backend):
     """Return the provider for the current site"""
     providers = list(provider.Registry.get_enabled_by_backend_name(backend))
     if not providers or len(providers) > 1:
-        raise ValueError("No or Multiple active providers found: %s", len(providers))
+        raise ValueError(
+            "No or Multiple active providers found: {}".format(len(providers)))
     oauth_provider = providers[0]
     return oauth_provider
 
