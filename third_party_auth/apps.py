@@ -20,3 +20,4 @@ class ThirdPartyAuthConfig(AppConfig):
         """
         from third_party_auth import settings as auth_settings
         auth_settings.apply_settings(settings)
+        from third_party_auth import signals

@@ -407,6 +407,7 @@ class CreateReadListViewset(mixins.CreateModelMixin,
 class OAuthProvidersViewset(CreateReadListViewset):
     """API viewset to dynamically Create/List/Retrieve OAuth2 Clients"""
     serializer_class = serializers.OAuthProviderSerializer
+    authentication_classes = [OAuth2Authentication]
     permission_classes = [IsAdminUser]
     pagination_class = None
 
@@ -429,6 +430,7 @@ class OAuthProvidersViewset(CreateReadListViewset):
             'ACCESS_TOKEN_URL',
             'PUBLIC_KEY',
             'END_SESSION_URL',
+            'ISS',
         ]
         return context
 

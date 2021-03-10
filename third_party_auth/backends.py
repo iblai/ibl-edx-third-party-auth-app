@@ -1,6 +1,9 @@
+import logging
 import jwt
 
 from social_core.backends.oauth import BaseOAuth2
+
+log = logging.getLogger(__name__)
 
 
 class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
@@ -63,7 +66,7 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
     """
 
     name = 'keycloak'
-    ID_KEY = 'username'
+    ID_KEY = 'email'
     ACCESS_TOKEN_METHOD = 'POST'
 
     def authorization_url(self):
@@ -92,12 +95,13 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
         from the Keycloak backend if you do not want to include
         the user information in the access_token.
         """
-        return jwt.decode(
+        payload = jwt.decode(
             access_token,
             key=self.public_key(),
             algorithms=self.algorithm(),
             audience=self.audience(),
         )
+        return payload
 
     def get_user_details(self, response):
         """Map fields in user_data into Django User fields
@@ -108,10 +112,10 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
             'fullname': response.get('name'),
             'first_name': response.get('given_name'),
             'last_name': response.get('family_name'),
+            'sub': response.get('sub'),
         }
 
     def get_user_id(self, details, response):
         """Get and associate Django User by the field indicated by ID_KEY
         """
-
         return details.get(self.ID_KEY)

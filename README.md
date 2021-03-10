@@ -45,7 +45,8 @@ TPA_PROVIDER_SUSTAINED_THROTTLE = '50/hr'
 IBL_TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'}
 IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'
 TPA_LOGOUT_PROVIDER = 'keycloak'
-TPA_ENABLE_OP_SESSION_MANAGEMENT = True
+TPA_ENABLE_OP_SESSION_MANAGEMENT = False
+IBL_CMS_PREVENT_CONCURRENT_LOGINS = True
 ```
 
 In `cms.env.json`, under `FEATURES`, add/edit the following:
@@ -188,6 +189,7 @@ Query string format: `<TPA_POST_LOGOUT_REDIRECT_FIELD>=<TPA_POST_LOGOUT_REDIRECT
     - If set to `None`, then no redirect URI query string will be added to the end session endpoint
 
 - `TPA_ENABLE_OP_SESSION_MANAGEMENT = True/False`
+    - **NOTE: This should be deprecated due to browsers now blocking third party cookies. This won't work in safari or Chrome (Incognito)**
     - If enabled, adds the check session iframe to the LMS/CMS
     - This will log the user out of edx if their session status changes on the OP.
     - This will occur for users who have logged in after the setting is enabled.
