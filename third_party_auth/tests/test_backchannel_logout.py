@@ -107,16 +107,6 @@ def test_get_profile_from_sub_raises_multiple_found(user):
         bcl._get_user_from_sub(sub, provider)
 
 
-@pytest.mark.skip
-def test_get_backchannel_logout_response_sets_status():
-    pass
-
-
-@pytest.mark.skip
-def test_get_current_provider():
-    pass
-
-
 @mock.patch('third_party_auth.provider._PSA_OAUTH2_BACKENDS', ['keycloak'])
 class TestBackchannelLogoutView(BaseTestCase):
 
