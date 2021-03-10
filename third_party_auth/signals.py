@@ -27,13 +27,11 @@ def cms_enforce_single_login(sender, request, user, signal, **kwargs):    # pyli
     https://github.com/edx/edx-platform/blob/open-release/ironwood.master/common/djangoapps/student/models.py#L2260-L2278
 
     """
-    log.info("Checking ibl cms_enfore_single_login")
     if getattr(settings, 'IBL_CMS_PREVENT_CONCURRENT_LOGINS', False):
         if signal == user_logged_in:
             key = request.session.session_key
         else:
             key = None
-        log.info('IBL Enforce single login session key: %s', key)
         if user:
             user_profile, __ = UserProfile.objects.get_or_create(
                 user=user,
@@ -53,8 +51,6 @@ def set_cms_login_session(profile, session_id=None):
     old_login = meta.get('cms_session_id', None)
     if old_login:
         SessionStore(session_key=old_login).delete()
-        log.info("Deleted old session_id = %s", old_login)
     meta['cms_session_id'] = session_id
-    log.info("setting cms_session_id = %s", session_id)
     profile.set_meta(meta)
     profile.save()

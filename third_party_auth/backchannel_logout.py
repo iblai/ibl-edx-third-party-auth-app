@@ -64,13 +64,12 @@ def _logout_of_sessions(user, request):
     session_exists = {key: store.exists(session_id) for key, session_id in sessions.items()}
     has_session = any(session_exists.values())
 
-    # notify of logout
+    # notify of logout - maybe not point though since audit log looks at
+    # request.user which is None
     if has_session:
         user_logged_out.send(sender=user.__class__, request=request, user=user)
     else:
-        log.warning(
-            "Logout request sent for user %s but user has no active sessions",
-            user.email)
+        log.warning("No active sessions exist for user %s", user.id)
         return
 
     # Delete sessions and remove them from profile meta
@@ -82,6 +81,7 @@ def _logout_of_sessions(user, request):
             log.debug("Deleted Session %s %s", name, session_id)
     profile.set_meta(meta)
     profile.save()
+    log.info("All sessions removed for user %s", user.id)
 
 def _get_current_provider(backend):
     """Return the provider for the current site"""
@@ -118,6 +118,7 @@ def back_channel_logout(request, backend):
     try:
         user = _get_user_from_sub(payload['sub'], backend)
         profile = user.profile
+        log.info("Backchannel logout request received for user %s", user.id)
     except UserSocialAuth.DoesNotExist:
         log.error("No UserSocialAuth.uid exists for sub %s", payload['sub'])
         return _get_backchannel_logout_response(501)
