@@ -1,5 +1,16 @@
 # ChangeLog
 
+## 1.1.1 - 2021-04-20
+- Change from calling `store.delete(session_key)` to `store = SessionStore(session_key).flush()`
+- Validate `store.exists(session_key)` returns False; try up to three times
+    - Have seen instances in devlms where session was claimed to have been deleted but user remained logged in
+    - This was very inconsistent to reproduce and have only been able to reproduce on devlms
+    - That's using `cached_db` as the SessionStore engine instead of `cache` (typical deployment). Unsure if related, though.
+- Adds `IBL_DISABLE_MARKETING_COOKIES` setting (default `True`).
+    - If True, sets the methods that would set the `DEPRECATED_LOGGED_IN_COOKIE_NAMES` value to a no-op
+        - `EDXMKTG_LOGGED_IN_COOKIE_NAME`
+        - `EDXMKTG_USER_INFO_COOKIE_NAME`
+
 ## 1.1.0 - 2021-03-10
 - Adds a OIDC backchannel logout endpoint to `/auth/back_channel_logout/<backend>`
 - Adds `IBL_CMS_PREVENT_CONCURRENT_LOGINS` setting to CMS `common.py`

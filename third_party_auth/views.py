@@ -181,7 +181,6 @@ class TPALogoutView(LogoutView):
     def get_context_data(self, **kwargs):
         context = super(TPALogoutView, self).get_context_data(**kwargs)
         # Default behavior if not logoout provider set
-        log.info(context)
         if TPA_LOGOUT_PROVIDER is None:
             return context
 
