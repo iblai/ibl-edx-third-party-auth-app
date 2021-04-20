@@ -1,5 +1,6 @@
 import logging
 from importlib import import_module
+import time
 
 import jwt
 
@@ -45,6 +46,20 @@ def _get_backchannel_logout_response(status):
     return response
 
 
+def _flush_session(store, meta_session_name, session_key):
+    """Flush session_key and return True if not found in cache
+
+    Args:
+        store (SessionStore): A general session store not tied to a session_key
+        meta_sssion_name (str): key from user meta that stores the session
+        session_key (str): session key to delete
+    """
+    user_store = SESSIONS_ENGINE.SessionStore(session_key=session_key)
+    user_store.flush()
+    log.info("Flushed %s %s", meta_session_name, session_key)
+    return store.exists(session_key)
+
+
 def _logout_of_sessions(user, request):
     """Log user our of all sessions and emit a user_logged_out signal
 
@@ -73,15 +88,27 @@ def _logout_of_sessions(user, request):
         return
 
     # Delete sessions and remove them from profile meta
+    # Have seen occurrences where says it's deleted, but then still exists in cache
+    # So we will try up to three times
+    attempts = 3
     profile = user.profile
     for name, session_id in sessions.items():
         if session_exists[name]:
+            for idx in range(1, attempts + 1):
+                still_exists = _flush_session(store, name, session_id)
+                if still_exists:
+                    log.info(
+                        "Session %s still exists after %s attempts; sleeping 0.1",
+                        session_id, idx)
+                    time.sleep(0.1)
+                else:
+                    log.info("Session %s no longer found", session_id)
+                    break
+
             meta[name] = None
-            store.delete(session_id)
-            log.debug("Deleted Session %s %s", name, session_id)
+
     profile.set_meta(meta)
     profile.save()
-    log.info("All sessions removed for user %s", user.id)
 
 def _get_current_provider(backend):
     """Return the provider for the current site"""
@@ -117,7 +144,6 @@ def back_channel_logout(request, backend):
 
     try:
         user = _get_user_from_sub(payload['sub'], backend)
-        profile = user.profile
         log.info("Backchannel logout request received for user %s", user.id)
     except UserSocialAuth.DoesNotExist:
         log.error("No UserSocialAuth.uid exists for sub %s", payload['sub'])

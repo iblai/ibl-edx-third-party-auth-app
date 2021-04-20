@@ -9,8 +9,12 @@ If true, it:
     a) loads this module.
     b) calls apply_settings(), passing in the Django settings
 """
+import logging
 
+from django.conf import settings
 from openedx.features.enterprise_support.api import insert_enterprise_pipeline_elements
+
+log = logging.getLogger(__name__)
 
 
 def apply_settings(django_settings):
@@ -62,6 +66,10 @@ def apply_settings(django_settings):
         'third_party_auth.pipeline.check_session_management',
         'third_party_auth.pipeline.login_analytics',
     ]
+
+    if getattr(settings, "IBL_DISABLE_MARKETING_COOKIES", True):
+        log.info("Disabling third_party_auth.pipeline.set_logged_in_cookies")
+        django_settings.SOCIAL_AUTH_PIPELINE.pop(-3)
 
     # Add enterprise pipeline elements if the enterprise app is installed
     insert_enterprise_pipeline_elements(django_settings.SOCIAL_AUTH_PIPELINE)
