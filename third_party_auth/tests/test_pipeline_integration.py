@@ -1,26 +1,28 @@
 """Integration tests for pipeline.py."""
 
-import unittest
 
 import datetime
+import unittest
+
+import ddt
 import mock
 import pytz
-import ddt
 from django import test
 from django.contrib.auth import models
 from django.core import mail
 from social_django import models as social_models
 
-from student.tests.factories import UserFactory
-from third_party_auth import pipeline, provider
-from third_party_auth.tests import testutil
 from lms.djangoapps.verify_student.models import SSOVerification
-
+from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.third_party_auth import pipeline, provider
+from common.djangoapps.third_party_auth.tests import testutil
+from common.djangoapps.third_party_auth.tests.utils import skip_unless_thirdpartyauth
 # Get Django User model by reference from python-social-auth. Not a type
 # constant, pylint.
 User = social_models.DjangoStorage.user.user_model()  # pylint: disable=invalid-name
 
 
+@skip_unless_thirdpartyauth()
 class TestCase(testutil.TestCase, test.TestCase):
     """Base test case."""
 
@@ -29,7 +31,6 @@ class TestCase(testutil.TestCase, test.TestCase):
         self.enabled_provider = self.configure_google_provider(enabled=True)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
 class GetAuthenticatedUserTestCase(TestCase):
     """Tests for get_authenticated_user."""
 
@@ -70,17 +71,17 @@ class GetAuthenticatedUserTestCase(TestCase):
         self.assertEqual(self.enabled_provider.get_authentication_backend(), user.backend)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
-class GetProviderUserStatesTestCase(testutil.TestCase, test.TestCase):
+class GetProviderUserStatesTestCase(TestCase):
     """Tests generation of ProviderUserStates."""
 
     def setUp(self):
         super(GetProviderUserStatesTestCase, self).setUp()
+        self.configure_google_provider(enabled=False)
         self.user = social_models.DjangoStorage.user.create_user(username='username', password='password')
 
     def test_returns_empty_list_if_no_enabled_providers(self):
         self.assertFalse(provider.Registry.enabled())
-        self.assertEquals([], pipeline.get_provider_user_states(self.user))
+        self.assertEqual([], pipeline.get_provider_user_states(self.user))
 
     def test_state_not_returned_for_disabled_provider(self):
         disabled_provider = self.configure_google_provider(enabled=False)
@@ -146,7 +147,6 @@ class GetProviderUserStatesTestCase(testutil.TestCase, test.TestCase):
         self.assertEqual(self.user, linkedin_state.user)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
 class UrlFormationTestCase(TestCase):
     """Tests formation of URLs for pipeline hook points."""
 
@@ -212,8 +212,7 @@ class UrlFormationTestCase(TestCase):
             pipeline.get_complete_url(provider_id)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
-class TestPipelineUtilityFunctions(TestCase, test.TestCase):
+class TestPipelineUtilityFunctions(TestCase):
     """
     Test some of the isolated utility functions in the pipeline
     """
@@ -240,7 +239,7 @@ class TestPipelineUtilityFunctions(TestCase, test.TestCase):
             }
         }
 
-        with mock.patch('third_party_auth.pipeline.get') as get_pipeline:
+        with mock.patch('common.djangoapps.third_party_auth.pipeline.get') as get_pipeline:
             get_pipeline.return_value = pipeline_partial
             real_social = pipeline.get_real_social_auth_object(request)
             self.assertEqual(real_social, self.social_auth)
@@ -257,7 +256,7 @@ class TestPipelineUtilityFunctions(TestCase, test.TestCase):
             }
         }
 
-        with mock.patch('third_party_auth.pipeline.get') as get_pipeline:
+        with mock.patch('common.djangoapps.third_party_auth.pipeline.get') as get_pipeline:
             get_pipeline.return_value = pipeline_partial
             real_social = pipeline.get_real_social_auth_object(request)
             self.assertEqual(real_social, self.social_auth)
@@ -303,10 +302,17 @@ class TestPipelineUtilityFunctions(TestCase, test.TestCase):
         self.assertNotIn('third_party_auth_quarantined_modules', request.session)
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
 @ddt.ddt
-class EnsureUserInformationTestCase(testutil.TestCase, test.TestCase):
+class EnsureUserInformationTestCase(TestCase):
     """Tests ensuring that we have the necessary user information to proceed with the pipeline."""
+
+    def setUp(self):
+        super(EnsureUserInformationTestCase, self).setUp()
+        self.user = social_models.DjangoStorage.user.create_user(
+            username='username',
+            password='password',
+            email='email@example.com',
+        )
 
     @ddt.data(
         (True, '/register'),
@@ -324,7 +330,7 @@ class EnsureUserInformationTestCase(testutil.TestCase, test.TestCase):
             skip_email_verification=False
         )
 
-        with mock.patch('third_party_auth.pipeline.provider.Registry.get_from_pipeline') as get_from_pipeline:
+        with mock.patch('common.djangoapps.third_party_auth.pipeline.provider.Registry.get_from_pipeline') as get_from_pipeline:
             get_from_pipeline.return_value = provider
             with mock.patch('social_core.pipeline.partial.partial_prepare') as partial_prepare:
                 partial_prepare.return_value = mock.MagicMock(token='')
@@ -338,9 +344,46 @@ class EnsureUserInformationTestCase(testutil.TestCase, test.TestCase):
                 assert response.status_code == 302
                 assert response.url == expected_redirect_url
 
+    @ddt.data(
+        ('non_existing_user_email@example.com', '/register', True),
+        ('email@example.com', '/login', True),
+        (None, '/register', True),
+        ('non_existing_user_email@example.com', '/register', False),
+        ('email@example.com', '/login', False),
+        (None, '/login', False),
+    )
+    @ddt.unpack
+    def test_redirect_for_saml_based_on_email_only(self, email, expected_redirect_url, is_saml):
+        """
+        Test that only email(and not username) is used by saml based auth flows
+        to determine if a user already exists
+        """
+        saml_provider = mock.MagicMock(
+            slug='unique_slug',
+            send_to_registration_first=True,
+            skip_email_verification=False
+        )
+        with mock.patch('common.djangoapps.third_party_auth.pipeline.provider.Registry.get_from_pipeline') as get_from_pipeline:
+            get_from_pipeline.return_value = saml_provider
+            with mock.patch(
+                'common.djangoapps.third_party_auth.pipeline.provider.Registry.get_enabled_by_backend_name'
+            ) as enabled_saml_providers:
+                enabled_saml_providers.return_value = [saml_provider, ] if is_saml else []
+                with mock.patch('social_core.pipeline.partial.partial_prepare') as partial_prepare:
+                    partial_prepare.return_value = mock.MagicMock(token='')
+                    strategy = mock.MagicMock()
+                    response = pipeline.ensure_user_information(
+                        strategy=strategy,
+                        backend=None,
+                        auth_entry=pipeline.AUTH_ENTRY_LOGIN,
+                        pipeline_index=0,
+                        details={'username': self.user.username, 'email': email}
+                    )
+                    assert response.status_code == 302
+                    assert response.url == expected_redirect_url
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
-class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
+
+class UserDetailsForceSyncTestCase(TestCase):
     """Tests to ensure learner profile data is properly synced if the provider requires it."""
 
     def setUp(self):
@@ -350,9 +393,9 @@ class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
         self.old_username = self.user.username
         self.old_fullname = self.user.profile.name
         self.details = {
-            'email': 'new+{}'.format(self.user.email),
-            'username': 'new_{}'.format(self.user.username),
-            'fullname': 'Grown Up {}'.format(self.user.profile.name),
+            'email': u'new+{}'.format(self.user.email),
+            'username': u'new_{}'.format(self.user.username),
+            'fullname': u'Grown Up {}'.format(self.user.profile.name),
             'country': 'PK',
             'non_existing_field': 'value',
         }
@@ -361,7 +404,7 @@ class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
         self.strategy = mock.MagicMock()
         self.strategy.storage.user.changed.side_effect = lambda user: user.save()
 
-        get_from_pipeline = mock.patch('third_party_auth.pipeline.provider.Registry.get_from_pipeline')
+        get_from_pipeline = mock.patch('common.djangoapps.third_party_auth.pipeline.provider.Registry.get_from_pipeline')
         self.get_from_pipeline = get_from_pipeline.start()
         self.get_from_pipeline.return_value = mock.MagicMock(sync_learner_profile_data=True)
         self.addCleanup(get_from_pipeline.stop)
@@ -381,7 +424,7 @@ class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
         # User now has updated information in the DB.
         user = User.objects.get()
         assert user.email == 'new+{}'.format(self.old_email)
-        assert user.profile.name == 'Grown Up {}'.format(self.old_fullname)
+        assert user.profile.name == u'Grown Up {}'.format(self.old_fullname)
         assert user.profile.country == 'PK'
 
         # Now verify that username field is not updated
@@ -407,7 +450,7 @@ class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
         # The email is not changed, but everything else is.
         user = User.objects.get(pk=self.user.pk)
         assert user.email == self.old_email
-        assert user.profile.name == 'Grown Up {}'.format(self.old_fullname)
+        assert user.profile.name == u'Grown Up {}'.format(self.old_fullname)
         assert user.profile.country == 'PK'
 
         # Now verify that username field is not updated
@@ -437,21 +480,20 @@ class UserDetailsForceSyncTestCase(testutil.TestCase, test.TestCase):
         user = User.objects.get(pk=self.user.pk)
         assert user.email == 'new+{}'.format(self.old_email)
         assert user.username == self.old_username
-        assert user.profile.name == 'Grown Up {}'.format(self.old_fullname)
+        assert user.profile.name == u'Grown Up {}'.format(self.old_fullname)
         assert user.profile.country == 'PK'
 
         # An email should still be sent because the email changed.
         assert len(mail.outbox) == 1
 
 
-@unittest.skipUnless(testutil.AUTH_FEATURE_ENABLED, testutil.AUTH_FEATURES_KEY + ' not enabled')
-class SetIDVerificationStatusTestCase(testutil.TestCase, test.TestCase):
+class SetIDVerificationStatusTestCase(TestCase):
     """Tests to ensure SSO ID Verification for the user is set if the provider requires it."""
 
     def setUp(self):
         super(SetIDVerificationStatusTestCase, self).setUp()
         self.user = UserFactory.create()
-        self.provider_class_name = 'third_party_auth.models.SAMLProviderConfig'
+        self.provider_class_name = 'common.djangoapps.third_party_auth.models.SAMLProviderConfig'
         self.provider_slug = 'default'
         self.details = {}
 
@@ -459,7 +501,7 @@ class SetIDVerificationStatusTestCase(testutil.TestCase, test.TestCase):
         self.strategy = mock.MagicMock()
         self.strategy.storage.user.changed.side_effect = lambda user: user.save()
 
-        get_from_pipeline = mock.patch('third_party_auth.pipeline.provider.Registry.get_from_pipeline')
+        get_from_pipeline = mock.patch('common.djangoapps.third_party_auth.pipeline.provider.Registry.get_from_pipeline')
         self.get_from_pipeline = get_from_pipeline.start()
         self.get_from_pipeline.return_value = mock.MagicMock(
             enable_sso_id_verification=True,
@@ -523,7 +565,7 @@ class SetIDVerificationStatusTestCase(testutil.TestCase, test.TestCase):
             identity_provider_slug=self.provider_slug,
         )
 
-        with mock.patch('third_party_auth.pipeline.earliest_allowed_verification_date') as earliest_date:
+        with mock.patch('common.djangoapps.third_party_auth.pipeline.earliest_allowed_verification_date') as earliest_date:
             earliest_date.return_value = datetime.datetime.now(pytz.UTC) + datetime.timedelta(days=1)
             # Begin the pipeline.
             pipeline.set_id_verification_status(
@@ -540,3 +582,19 @@ class SetIDVerificationStatusTestCase(testutil.TestCase, test.TestCase):
                 identity_provider_type=self.provider_class_name,
                 identity_provider_slug=self.provider_slug,
             ).count() == 2
+
+    def test_verification_signal(self):
+        """
+        Verification signal is sent upon approval.
+        """
+        with mock.patch('openedx.core.djangoapps.signals.signals.LEARNER_NOW_VERIFIED.send_robust') as mock_signal:
+            # Begin the pipeline.
+            pipeline.set_id_verification_status(
+                auth_entry=pipeline.AUTH_ENTRY_LOGIN,
+                strategy=self.strategy,
+                details=self.details,
+                user=self.user,
+            )
+
+        # Ensure a verification signal was sent
+        self.assertEqual(mock_signal.call_count, 1)

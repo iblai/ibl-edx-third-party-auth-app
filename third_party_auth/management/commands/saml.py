@@ -2,9 +2,13 @@
 """
 Management commands for third_party_auth
 """
-from django.core.management.base import BaseCommand, CommandError
+
+
 import logging
-from third_party_auth.tasks import fetch_saml_metadata
+
+from django.core.management.base import BaseCommand, CommandError
+
+from common.djangoapps.third_party_auth.tasks import fetch_saml_metadata
 
 
 class Command(BaseCommand):
@@ -22,15 +26,15 @@ class Command(BaseCommand):
 
         log_handler = logging.StreamHandler(self.stdout)
         log_handler.setLevel(logging.DEBUG)
-        log = logging.getLogger('third_party_auth.tasks')
+        log = logging.getLogger('common.djangoapps.third_party_auth.tasks')
         log.propagate = False
         log.addHandler(log_handler)
         total, skipped, attempted, updated, failed, failure_messages = fetch_saml_metadata()
         self.stdout.write(
-            "\nDone."
-            "\n{total} provider(s) found in database."
-            "\n{skipped} skipped and {attempted} attempted."
-            "\n{updated} updated and {failed} failed.\n".format(
+            u"\nDone."
+            u"\n{total} provider(s) found in database."
+            u"\n{skipped} skipped and {attempted} attempted."
+            u"\n{updated} updated and {failed} failed.\n".format(
                 total=total,
                 skipped=skipped, attempted=attempted,
                 updated=updated, failed=failed,
@@ -39,7 +43,7 @@ class Command(BaseCommand):
 
         if failed > 0:
             raise CommandError(
-                "Command finished with the following exceptions:\n\n{failures}".format(
+                u"Command finished with the following exceptions:\n\n{failures}".format(
                     failures="\n\n".join(failure_messages)
                 )
             )
