@@ -10,14 +10,14 @@ def _noop(*args, **kwargs):
     return
 
 
-class ThirdPartyAuthConfig(AppConfig):
-    name = 'common.djangoapps.third_party_auth'
-    verbose_name = "Third-party authentication"
+class IBLThirdPartyAuthConfig(AppConfig):
+    name = 'ibl_third_party_auth'
+    verbose_name = "IBL Third-party authentication"
 
     def ready(self):
         # To override the settings before loading social_django.
-        if settings.FEATURES.get('ENABLE_THIRD_PARTY_AUTH', False):
-            self._enable_third_party_auth()
+        from .patches.patch import patch
+        patch()
 
     def _enable_third_party_auth(self):
         """
