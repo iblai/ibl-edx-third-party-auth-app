@@ -31,10 +31,11 @@ from common.djangoapps.student.models import UserProfile
 from common.djangoapps.student.views import compose_and_send_activation_email
 from common.djangoapps.third_party_auth import pipeline, provider
 
+from ibl_third_party_auth import backchannel_logout
+
 from .models import SAMLConfiguration, SAMLProviderConfig
 
 log = logging.getLogger(__name__)
-
 
 URL_NAMESPACE = getattr(settings, setting_name('URL_NAMESPACE'), None) or 'social'
 TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
@@ -285,3 +286,9 @@ class TPALogoutView(LogoutView):
         query_string = urlencode(redirect_uri)
         end_session_url += '?{}'.format(query_string)
         return end_session_url
+
+
+@csrf_exempt
+def back_channel_logout(request, backend):
+    """Back Channel logout"""
+    return backchannel_logout.back_channel_logout(request, backend)
