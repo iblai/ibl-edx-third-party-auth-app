@@ -7,8 +7,8 @@ def patch():
     """
     - models - OAuth2ProviderConfig(ProviderConfig) - DONE
     - provider.py - DONE
-    - settings.py
-    - strategy.py
+    - settings.py - Maybe don't need to do now?
+    - strategy.py - DONE
     - All tests
     """
     from . import patch_provider, patch_models, patch_strategy
