@@ -7,5 +7,6 @@ class IBLThirdPartyAuthConfig(AppConfig):
     verbose_name = "IBL Third-party Auth "
 
     def ready(self):
+        from . import signals
         from .patches.patch import patch
         patch()
