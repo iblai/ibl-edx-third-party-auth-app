@@ -5,12 +5,14 @@ log = logging.getLogger(__name__)
 
 def patch():
     """
-    - models - OAuth2ProviderConfig(ProviderConfig)
-    - provider.py
+    - models - OAuth2ProviderConfig(ProviderConfig) - DONE
+    - provider.py - DONE
     - settings.py
     - strategy.py
     - All tests
     """
-    from . import patch_provider, patch_models
+    from . import patch_provider, patch_models, patch_strategy
+
+    patch_strategy.patch()
     patch_provider.patch()
     patch_models.patch()
