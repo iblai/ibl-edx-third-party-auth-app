@@ -25,20 +25,20 @@ from ibl_third_party_auth import backchannel_logout
 
 log = logging.getLogger(__name__)
 
-TPA_LOGOUT_PROVIDER = getattr(settings, 'TPA_LOGOUT_PROVIDER', None)
 TPA_POST_LOGOUT_REDIRECT_FIELD = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_FIELD', 'redirect_uri')
 TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
 
 
 class TPALogoutView(LogoutView):
-    """Set post redirect target to end session url of TPA_LOGOUT_PROVIDER
+    """Set post redirect target to `logout_url` of current IDP
 
-    This only occurs if this setting is filled out. If there is an
-    END_SESSION_URL value in the TPA_LOGOUT_PROVIDER backend's other settings,
-    it will redirect to that endpoint after logging the user out.
+    This only occurs if this setting is filled out. If there is a `logout_url`
+    value in the backend's other_settings, it will redirect to that endpoint
+    after logging the user out.
 
-    Ideally, that endpoint will redirect the user back to the the current
-    domains home page.
+    We set the `redirect_uri` of the end session endpoint to point back to
+    the current domain, so after ending the session they should be returned
+    to the landing page.
     """
     def dispatch(self, request, *args, **kwargs):
         """Changes how response is created"""
@@ -54,45 +54,27 @@ class TPALogoutView(LogoutView):
             # For the LMS, we redirect to the normal logout page
             response = super(LogoutView, self).dispatch(request, *args, **kwargs)
         else:
-            # for the CMS,
+            # CMS can't use the normal logout template b/c template exists in LMS
+            # So we return a redirect to target after logging out
             context = self.get_context_data()
             target = context.get('target')
-            if not target:
-                log.error("Missing target; falling back to original response")
-                response = self._get_original_response(request, *args, **kwargs)
-            else:
-                response = redirect(target)
+            response = redirect(target)
 
         # Clear the cookie used by the edx.org marketing site
         delete_logged_in_cookies(response)
 
         return response
 
-    def _get_original_response(self, request, *args, **kwargs):
-        """Return the response based on the original function"""
-        if settings.FEATURES.get('DISABLE_STUDIO_SSO_OVER_LMS', False) and not self.oauth_client_ids:
-            response = redirect(self.target)
-        else:
-            response = super(LogoutView, self).dispatch(request, *args, **kwargs)
-        return response
-
     def get_context_data(self, **kwargs):
+        """Add redirect_url to tpa_logout_url if it exists"""
         context = super(TPALogoutView, self).get_context_data(**kwargs)
-        # Default behavior if not logoout provider set
-        if TPA_LOGOUT_PROVIDER is None or not self.tpa_logout_url:
+        # Default behavior if no logout_url
+        if not self.tpa_logout_url:
             return context
 
         end_session_url = self._add_post_logout_redirect_uri(self.tpa_logout_url)
         context['target'] = end_session_url
         return context
-
-    def _get_end_session_url(self, backend):
-        """Return end_session_url or '' if not set on backend"""
-        try:
-            end_session_url = backend.get_setting('END_SESSION_URL')
-        except KeyError:
-            end_session_url = ""
-        return end_session_url
 
     def _add_post_logout_redirect_uri(self, end_session_url):
         """Optionally add query string for post logout redirect
