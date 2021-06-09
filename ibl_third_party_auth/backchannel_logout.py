@@ -11,7 +11,9 @@ from django.http import HttpResponse
 
 from social_django.models import UserSocialAuth
 
-from common.djangoapps.third_party_auth import provider, jwt_validation
+from common.djangoapps.third_party_auth import provider
+
+from . import jwt_validation
 
 log = logging.getLogger(__name__)
 SESSIONS_ENGINE = import_module(settings.SESSION_ENGINE)
