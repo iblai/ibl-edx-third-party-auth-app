@@ -4,12 +4,11 @@ Third Party Auth REST API views
 
 
 from rest_framework import viewsets, mixins
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 
 from openedx.core.lib.api.authentication import BearerAuthentication
-from openedx.core.lib.api.view_utils import view_auth_classes
 
-from common.djangoapps.third_party_auth.api import serializers
+from . import serializers
 from common.djangoapps.third_party_auth.models import OAuth2ProviderConfig
 
 
@@ -21,12 +20,11 @@ class CreateReadListViewset(mixins.CreateModelMixin,
     pass
 
 
-@view_auth_classes(is_authenticated=True)
 class OAuthProvidersViewset(CreateReadListViewset):
     """API viewset to dynamically Create/List/Retrieve OAuth2 Clients"""
     serializer_class = serializers.OAuthProviderSerializer
     authentication_classes = [BearerAuthentication]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     pagination_class = None
 
     def get_queryset(self):
