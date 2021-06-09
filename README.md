@@ -66,8 +66,13 @@ In `cms/envs/common.py`:
 - Setup `ibl-tpa-middleware` like in the LMS (`INSTALLED_APPS`, `MIDDLEWARE`)
 - Add `'ibl_third_party_auth.backends.KeycloakOAuth2',` to the front of the `AUTHENTICATION_BACKENDS` list
 - Add `ibl_third_party_auth` to the `INSTALLED_APPS`
-- Add the following to the bottom of the file:
+- Comment out the following two lines:
+```python
+# FRONTEND_LOGOUT_URL = lambda settings: settings.LMS_ROOT_URL + '/logout'
+# derived('FRONTEND_LOGOUT_URL')
+```
 
+- Add the following to the bottom of the file:
 ```python
 TPA_PROVIDER_BURST_THROTTLE = '10/min'
 TPA_PROVIDER_SUSTAINED_THROTTLE = '50/hr'
