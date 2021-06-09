@@ -65,17 +65,8 @@ def get_enabled_by_backend_name(cls, backend_name):
                 yield provider
 
 
-def provider_id(self):
-    """ Unique string key identifying this provider. Must be URL and css class friendly. """
-    assert self.prefix is not None
-    return "-".join((self.prefix, ) + tuple(str(getattr(self, field)) for field in self.KEY_FIELDS))
-
-
 def patch():
     from common.djangoapps.third_party_auth import provider
 
     provider.Registry._enabled_providers = classmethod(_enabled_providers)
     provider.Registry.get_enabled_by_backend_name = classmethod(get_enabled_by_backend_name)
-    provider.Registry.provider_id = property(provider_id)
-
-    log.info("Patched Registry")
