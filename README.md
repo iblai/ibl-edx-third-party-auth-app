@@ -5,7 +5,7 @@ Updates to this package also add support for dynamically modifying the `OAuth2Pr
 
 This document covers installation and backend setup. For customer facing usage and setup see the `USAGE.md` file.
 
-## Prereqs
+## Prereq Installations
 - [ibl-tpa-middleware](https://gitlab.com/iblstudios/ibl-tpa-middleware)
     * Add to `INSTALLED_APPS` and add proper version to `MIDDLEWARE` (based on edx/django version)
 - [iblx-cms theming](https://gitlab.com/iblstudios/iblx-cms)
