@@ -33,8 +33,8 @@ class IBLConfigurationModelStrategy(DjangoStrategy):
             setting 'name' is configured via LTIProviderConfig.
         """
         if isinstance(backend, OAuthAuth):
-            # NOTE: IBL PATCH -> Adds self.request.site_id to call to current
-            provider_config = OAuth2ProviderConfig.current(backend.name, self.request.site_id)
+            # NOTE: IBL PATCH -> Adds self.request.site.id to call to current
+            provider_config = OAuth2ProviderConfig.current(backend.name, self.request.site.id)
             if not provider_config.enabled_for_current_site:
                 raise Exception("Can't fetch setting of a disabled backend/provider.")
             try:
@@ -66,4 +66,3 @@ class IBLConfigurationModelStrategy(DjangoStrategy):
 
 def patch():
     strategy.ConfigurationModelStrategy = IBLConfigurationModelStrategy
-    log.info("Patched Strategy")
