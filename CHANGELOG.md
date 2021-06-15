@@ -1,6 +1,6 @@
 # ChangeLog
 
-## 2.0.0 - 2021-06-09
+## 2.0.0 - 2021-06-15
 - Adds KOA support
 - No longer copies and modifies original app. Instead patches relevant portions of `common.djangoapps.third_party_auth` and adds our API's/changes where necessary.
 - Drops all support for `check-session-iframe` content.
@@ -11,6 +11,7 @@
 - Removes `TPA_LOGOUT_PROVIDER` setting; no longer needed since we get `logout_url` from provider that user logged in under
 - Removes `IBL_DISABLE_MARKETING_COOKIES` settings
     - This needs to be approached in a different way
+- Renames `setup.py` app name to `ibl-third-party-auth`
 
 ## 1.1.1 - 2021-04-20
 - Change from calling `store.delete(session_key)` to `store = SessionStore(session_key).flush()`
