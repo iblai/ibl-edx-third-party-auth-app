@@ -19,7 +19,6 @@ TPA_POST_LOGOUT_REDIRECT_FIELD = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_FIE
 TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL', 'current_site')
 
 
-
 def dispatch(self, request, *args, **kwargs):
     """Set post redirect target to `logout_url` of current IDP
 
@@ -58,7 +57,7 @@ def dispatch(self, request, *args, **kwargs):
 
 def get_context_data(self, **kwargs):
     """Add redirect_url to tpa_logout_url if it exists"""
-    context = super(LogoutView, self).get_context_data(**kwargs)
+    context = self.orig_get_context_data(**kwargs)
     # Default behavior if no logout_url
     if not self.tpa_logout_url:
         return context
@@ -93,6 +92,10 @@ def _add_post_logout_redirect_uri(self, end_session_url):
 
 
 def patch():
+    # Preserve original functions
+    logout_views.LogoutView.orig_get_context_data = logout_views.LogoutView.get_context_data
+
+    # Patch
     logout_views.LogoutView.dispatch = dispatch
     logout_views.LogoutView.get_context_data = get_context_data
     logout_views.LogoutView._add_post_logout_redirect_uri = _add_post_logout_redirect_uri
