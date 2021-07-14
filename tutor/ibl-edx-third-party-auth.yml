@@ -20,6 +20,6 @@ patches:
     # ibl-edx-third-party-auth
     TPA_PROVIDER_BURST_THROTTLE = '10/min'
     TPA_PROVIDER_SUSTAINED_THROTTLE = '50/hr'
-    IBL_TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'
+    IBL_TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'}
     IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'
     IBL_CMS_PREVENT_CONCURRENT_LOGINS = True
