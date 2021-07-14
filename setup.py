@@ -27,7 +27,11 @@ setup(
     entry_points={
         'lms.djangoapp': [
             'ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig',
-        ]
+        ],
+        'cms.djangoapp': [
+            'ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig',
+        ],
+
     },
-    package_data=package_data("ibl_third_party_auth", ["api", "patches"]),
+    package_data=package_data("ibl_third_party_auth", ["api", "patches", "settings"]),
 )
