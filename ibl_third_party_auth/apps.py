@@ -18,9 +18,19 @@ class IBLThirdPartyAuthConfig(AppConfig):
                 'regex': r'',
                 'relative_path': 'urls',
             },
+            'cms.djangoapp': {
+                'namespace': 'ibl_third_party_auth',
+                'regex': r'',
+                'relative_path': 'urls',
+            },
         },
         'settings_config': {
             'lms.djangoapp': {
+                'common': {
+                    'relative_path': 'settings.common',
+                },
+            },
+            'cms.djangoapp': {
                 'common': {
                     'relative_path': 'settings.common',
                 },
