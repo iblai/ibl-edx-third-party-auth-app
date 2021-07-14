@@ -22,7 +22,4 @@ def plugin_settings(settings):  # pylint: disable=unused-argument
     """
     Defines ibl_third_party_auth-specific settings when app is used as a plugin to edx-platform.
     """
-
-    # Only necessary for LMS
-    # if settings.ROOT_URLCONF.startswith('lms'):
-    #     settings.
+    settings.AUTHENTICATION_BACKENDS.insert(0, 'ibl_third_party_auth.backends.KeycloakOAuth2')
