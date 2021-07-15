@@ -28,3 +28,8 @@ def plugin_settings(settings):  # pylint: disable=unused-argument
     else:
         settings.AUTHENTICATION_BACKENDS = ['ibl_third_party_auth.backends.KeycloakOAuth2']
 
+    # Have to add to CMS's INSTALLED_APPS
+    tpa = 'common.djangoapps.third_party_auth'
+    if settings.ROOT_URLCONF.startswith('cms') and tpa not in settings.INSTALLED_APPS:
+        settings.INSTALLED_APPS.append(tpa)
+
