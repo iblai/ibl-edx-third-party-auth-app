@@ -15,12 +15,12 @@ class IBLThirdPartyAuthConfig(AppConfig):
         'url_config': {
             'lms.djangoapp': {
                 'namespace': 'ibl_third_party_auth',
-                'regex': r'api/third_party_auth',
+                'regex': r'',
                 'relative_path': 'urls',
             },
             'cms.djangoapp': {
                 'namespace': 'ibl_third_party_auth',
-                'regex': r'api/third_party_auth',
+                'regex': r'',
                 'relative_path': 'urls',
             },
         },
