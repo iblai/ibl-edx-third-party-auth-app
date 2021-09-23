@@ -22,7 +22,14 @@ def plugin_settings(settings):  # pylint: disable=unused-argument
     """
     Defines ibl_third_party_auth-specific settings when app is used as a plugin to edx-platform.
     """
+    backends = getattr(settings, 'AUTHENTICATION_BACKENDS', None)
+    if backends:
+        settings.AUTHENTICATION_BACKENDS.insert(0, 'ibl_third_party_auth.backends.KeycloakOAuth2')
+    else:
+        settings.AUTHENTICATION_BACKENDS = ['ibl_third_party_auth.backends.KeycloakOAuth2']
 
-    # Only necessary for LMS
-    # if settings.ROOT_URLCONF.startswith('lms'):
-    #     settings.
+    # Have to add to CMS's INSTALLED_APPS
+    tpa = 'common.djangoapps.third_party_auth'
+    if settings.ROOT_URLCONF.startswith('cms') and tpa not in settings.INSTALLED_APPS:
+        settings.INSTALLED_APPS.append(tpa)
+

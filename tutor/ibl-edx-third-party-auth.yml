@@ -3,8 +3,11 @@ version: 0.1.0
 patches:
   common-env-features: |
     "ENABLE_THIRD_PARTY_AUTH": true
+<<<<<<< HEAD
   cms-env-features: |
     "DISABLE_STUDIO_SSO_OVER_LMS": true
+=======
+>>>>>>> 9ecbb8c5b0907b6f1afaf9f0df1c0ac9fd5c5203
   lms-env: |
     "REGISTRATION_EXTRA_FIELDS": {
       "city": "hidden",
@@ -24,4 +27,8 @@ patches:
     TPA_PROVIDER_SUSTAINED_THROTTLE = '50/hr'
     IBL_TPA_MIDDLEWARE_TARGET_URLS = {'/login', '/register', '/signup', '/signin'}
     IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'
+<<<<<<< HEAD
     IBL_CMS_PREVENT_CONCURRENT_LOGINS = True
+=======
+    IBL_CMS_PREVENT_CONCURRENT_LOGINS = True
+>>>>>>> 9ecbb8c5b0907b6f1afaf9f0df1c0ac9fd5c5203
