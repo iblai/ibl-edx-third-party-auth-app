@@ -10,21 +10,26 @@ This document covers installation and backend setup. For customer facing usage a
     * Add to `INSTALLED_APPS` and add proper version to `MIDDLEWARE` (based on edx/django version)
 - [iblx-cms theming](https://gitlab.com/iblstudios/iblx-cms)
 
-## Installation
-**Fresh Install**
-```shell
-sudo -Hu edxapp /bin/bash
-source /edx/app/edxapp/edxapp_env
-/edx/bin/pip.edxapp install git+https://gitlab.com/iblstudios/ibl-edx-third-party-auth@koa
+
+### Installation
+#### Install
 ```
-**Upgrade**
-```shell
-sudo -Hu edxapp /bin/bash
-source /edx/app/edxapp/edxapp_env
-/edx/bin/pip.edxapp install --upgrade --no-deps --force-reinstall git+https://gitlab.com/iblstudios/ibl-edx-third-party-auth@koa
+cd $(tutor config printroot)"/env/build/openedx/requirements
+git clone --branch koa-tutor-plugin https://gitlab.com/iblstudios/ibl-edx-third-party-auth.git
+
+#Enter the lms shell 
+tutor local run lms bash
+pip install -e ../requirement/ibl-edx-third-party-auth
 ```
 
-## EdX Setup
+#### Uninstall
+```
+#Enter the lms shell 
+tutor local run lms bash
+pip uninstall ibl_third_party_auth
+```
+
+## EdX Setup (To be updated)
 - Become the root `sudo -i`
 - Open `lms/envs/common.py`
     - Add `ibl_third_party_auth` to `INSTALLED_APPS`
