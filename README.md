@@ -10,7 +10,6 @@ This document covers installation and backend setup. For customer facing usage a
     * Add to `INSTALLED_APPS` and add proper version to `MIDDLEWARE` (based on edx/django version)
 - [iblx-cms theming](https://gitlab.com/iblstudios/iblx-cms)
 
-
 ### Installation
 #### Install
 ```
