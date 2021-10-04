@@ -2,7 +2,6 @@
 App Configuration for ibl_third_party_auth
 """
 from django.apps import AppConfig
-from django.conf import settings
 
 class IBLThirdPartyAuthConfig(AppConfig):
     """
