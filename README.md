@@ -11,7 +11,7 @@ This document covers installation and backend setup. For customer facing usage a
 - [iblx-cms theming](https://gitlab.com/iblstudios/iblx-cms)
 
 ### Installation
-#### Install
+#### Tutor
 ```
 cd $(tutor config printroot)"/env/build/openedx/requirements
 git clone --branch koa-tutor-plugin https://gitlab.com/iblstudios/ibl-edx-third-party-auth.git
@@ -57,7 +57,7 @@ If you want to enable auto login for each domain to their keycloak realm:
 - Ensure you've followed instructions for installing `ibl-tpa-middleware`
 - Set `IBL_TPA_MIDDLEWARE_DEFAULT_PROVIDER = 'keycloak'` in `lms/envs/common.py`
 
-Restart the LMS.
+Restart the LMS / start-stop the LMS container.
 
 ### Adding SSO to the CMS (via an external IDP)
 When adding SSO to the CMS (disabling SSO over LMS and using some IDP), complete the following:
