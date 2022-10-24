@@ -14,7 +14,7 @@ hooks.Filters.ENV_PATCHES.add_item(
 )
 hooks.Filters.ENV_PATCHES.add_item(
     (
-        "lms-env",
+        "openedx-lms-common-settings",
         """
         "REGISTRATION_EXTRA_FIELDS": {
       "city": "hidden",
