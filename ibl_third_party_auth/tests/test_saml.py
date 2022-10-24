@@ -3,7 +3,7 @@ Unit tests for third_party_auth SAML auth providers
 """
 
 
-import mock
+from unittest import mock
 
 from common.djangoapps.third_party_auth.saml import EdXSAMLIdentityProvider, get_saml_idp_class
 from common.djangoapps.third_party_auth.tests.data.saml_identity_provider_mock_data import (

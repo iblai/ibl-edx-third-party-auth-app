@@ -12,7 +12,7 @@ from django.http import QueryDict
 from django.test.utils import override_settings
 from django.urls import reverse
 from edx_rest_framework_extensions.auth.jwt.tests.utils import generate_jwt
-from mock import patch
+from unittest.mock import patch
 from rest_framework.test import APITestCase
 from six.moves import range
 from social_django.models import UserSocialAuth

@@ -1,12 +1,10 @@
 from importlib import import_module
 import json
-import mock
+from unittest import mock
 import pytest
 
 from django.conf import settings
 from django.urls import reverse
-from django.contrib.auth.models import User
-from django.contrib.auth import login
 from django.test import RequestFactory, TestCase, override_settings, Client
 from common.djangoapps.third_party_auth.tests.testutil import ThirdPartyAuthTestMixin
 

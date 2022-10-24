@@ -21,6 +21,14 @@ def package_data(pkg, roots):
 setup(
     name='ibl-third-party-auth',
     version='2.0.0',
+    install_requires=[
+        "ddt",
+        "social-auth-app-django",
+        "httpretty",
+        "freezegun",
+        "testfixtures",
+        "python3-saml"
+    ],
     description='EdX Third Parth Auth package with IBL specific modifications',
     license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
     packages=find_packages(),

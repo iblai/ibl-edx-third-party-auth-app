@@ -7,7 +7,6 @@ import datetime
 import json
 import logging
 import os
-import unittest
 from unittest import skip
 
 import ddt
@@ -15,7 +14,7 @@ import httpretty
 from django.conf import settings
 from django.contrib import auth
 from freezegun import freeze_time
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 from social_core import actions
 from social_django import views as social_views
 from social_django.models import UserSocialAuth

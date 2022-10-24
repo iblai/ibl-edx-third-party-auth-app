@@ -2,10 +2,9 @@
 
 
 import datetime
-import unittest
 
 import ddt
-import mock
+from unittest import mock
 import pytz
 from django import test
 from django.contrib.auth import models

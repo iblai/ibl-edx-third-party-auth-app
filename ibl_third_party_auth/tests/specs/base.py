@@ -7,7 +7,7 @@ import json
 import unittest
 from contextlib import contextmanager
 
-import mock
+from unittest import mock
 from django import test
 from django.contrib import auth
 from django.contrib.auth import models as auth_models

@@ -9,7 +9,7 @@ import os.path
 from contextlib import contextmanager
 
 import django.test
-import mock
+from unittest import mock
 import six
 from django.conf import settings
 from django.contrib.auth.models import User

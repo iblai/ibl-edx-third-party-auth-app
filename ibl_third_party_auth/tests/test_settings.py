@@ -1,9 +1,8 @@
 """Unit tests for settings.py."""
 
 
-import unittest
 
-from mock import patch
+from unittest.mock import patch
 from common.djangoapps.third_party_auth import provider, settings
 from common.djangoapps.third_party_auth.tests import testutil
 from common.djangoapps.third_party_auth.tests.utils import skip_unless_thirdpartyauth

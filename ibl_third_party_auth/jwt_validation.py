@@ -68,13 +68,13 @@ def _perform_optional_checks(pub_key_str, provider, payload):
         raise JwtValidationError(
             'Unable to find Social Auth User: %s', payload['sub'])
 
-    last_id_token = _check_signature(
-        pub_key_str, social_auth.extra_data.get('id_token'))
-
-    # These are optional checks, which could cause issues
-    _check_last_iss(last_id_token, payload)
-    _check_last_sub(last_id_token, payload)
-    _check_last_sid(last_id_token, payload)
+    # last_id_token = _check_signature(
+    #     pub_key_str, social_auth.extra_data.get('id_token'))
+    #
+    # # These are optional checks, which could cause issues
+    # _check_last_iss(last_id_token, payload)
+    # _check_last_sub(last_id_token, payload)
+    # _check_last_sid(last_id_token, payload)
 
 
 def _check_iat(iat, slack=120):
