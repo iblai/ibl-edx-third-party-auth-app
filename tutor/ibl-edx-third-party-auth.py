@@ -2,32 +2,20 @@ from tutor import hooks
 
 hooks.Filters.ENV_PATCHES.add_item(
     (
-        "common-env-features",
-        "ENABLE_THIRD_PARTY_AUTH = True"
+        "openedx-common-settings",
+        "FEATURES['ENABLE_THIRD_PARTY_AUTH'] = True"
     )
 )
 hooks.Filters.ENV_PATCHES.add_item(
     (
-        "cms-env-features",
-        "DISABLE_STUDIO_SSO_OVER_LMS = True"
+        "openedx-cms-common-settings",
+        "FEATURES['DISABLE_STUDIO_SSO_OVER_LMS'] = True"
     )
 )
 hooks.Filters.ENV_PATCHES.add_item(
     (
         "openedx-lms-common-settings",
-        """REGISTRATION_EXTRA_FIELDS =  {
-      "city": "hidden",
-      "confirm_email": "hidden",
-      "country": "hidden",
-      "gender": "hidden",
-      "goals": "hidden",
-      "honor_code": "hidden",
-      "level_of_education": "hidden",
-      "mailing_address": "hidden",
-      "terms_of_service": "hidden",
-      "year_of_birth": "hidden"
-    }
-        """
+        "REGISTRATION_EXTRA_FIELDS =  {'city': 'hidden', 'confirm_email': 'hidden', 'country': 'hidden', 'gender': 'hidden', 'goals': 'hidden', 'honor_code': 'hidden', 'level_of_education': 'hidden', 'mailing_address': 'hidden', 'terms_of_service': 'hidden', 'year_of_birth': 'hidden'}"
     )
 )
 
