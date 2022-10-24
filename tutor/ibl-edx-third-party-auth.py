@@ -15,8 +15,7 @@ hooks.Filters.ENV_PATCHES.add_item(
 hooks.Filters.ENV_PATCHES.add_item(
     (
         "openedx-lms-common-settings",
-        """
-        "REGISTRATION_EXTRA_FIELDS": {
+        """REGISTRATION_EXTRA_FIELDS =  {
       "city": "hidden",
       "confirm_email": "hidden",
       "country": "hidden",
