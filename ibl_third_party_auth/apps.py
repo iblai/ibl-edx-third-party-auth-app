@@ -40,5 +40,4 @@ class IBLThirdPartyAuthConfig(AppConfig):
     def ready(self):
         from . import signals
         from .patches.patch import patch
-        patch = lambda: False
         patch()
