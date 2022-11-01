@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 from django.contrib.auth import logout
 from django.conf import settings
 from django.shortcuts import redirect
-
+from openedx.core.djangoapps.safe_sessions.middleware import mark_user_change_as_expected
 from openedx.core.djangoapps.user_authn.views.logout import LogoutView
 from openedx.core.djangoapps.user_authn.cookies import delete_logged_in_cookies
 from openedx.core.djangoapps.user_authn.views import logout as logout_views
@@ -20,24 +20,9 @@ TPA_POST_LOGOUT_REDIRECT_URL = getattr(settings, 'TPA_POST_LOGOUT_REDIRECT_URL',
 
 
 def dispatch(self, request, *args, **kwargs):
-    """Set post redirect target to `logout_url` of current IDP
-
-    This only occurs if this setting is filled out. If there is a `logout_url`
-    value in the backend's other_settings, it will redirect to that endpoint
-    after logging the user out.
-
-    We set the `redirect_uri` of the end session endpoint to point back to
-    the current domain, so after ending the session they should be returned
-    to the landing page.
-    """
-    # We do not log here, because we have a handler registered to perform logging on successful logouts.
-    request.is_from_logout = True
-
-    # Get third party auth provider's logout url
     self.tpa_logout_url = tpa_pipeline.get_idp_logout_url_from_running_pipeline(request)
 
     logout(request)
-
     # Start IBL Patch
     if settings.ROOT_URLCONF.startswith('lms'):
         # For the LMS, we redirect to the normal logout page
@@ -53,8 +38,8 @@ def dispatch(self, request, *args, **kwargs):
     # Clear the cookie used by the edx.org marketing site
     delete_logged_in_cookies(response)
 
+    mark_user_change_as_expected(None)
     return response
-
 def get_context_data(self, **kwargs):
     """Add redirect_url to tpa_logout_url if it exists"""
     context = self.orig_get_context_data(**kwargs)
