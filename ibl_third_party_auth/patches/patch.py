@@ -11,7 +11,7 @@ def patch():
     - strategy.py - DONE
     - All tests
     """
-    from . import patch_provider, patch_models, patch_strategy, patch_logoutview
+    from . import patch_logoutview, patch_models, patch_provider, patch_strategy
 
     patch_strategy.patch()
     patch_provider.patch()
