@@ -46,6 +46,7 @@ def dispatch(self, request, *args, **kwargs):
 
 
 def get_context_data(self, **kwargs):
+    # IBL PATCH STARTS
     """Add redirect_url to tpa_logout_url if it exists"""
     context = self.orig_get_context_data(**kwargs)
     # Default behavior if no logout_url
@@ -54,9 +55,10 @@ def get_context_data(self, **kwargs):
 
     end_session_url = self._add_post_logout_redirect_uri(self.tpa_logout_url)
     context["target"] = end_session_url
+    # IBL PATCH ENDS
     return context
 
-
+# IBL PATCH STARTS
 def _add_post_logout_redirect_uri(self, end_session_url):
     """Optionally add query string for post logout redirect
 
@@ -80,6 +82,7 @@ def _add_post_logout_redirect_uri(self, end_session_url):
     query_string = urlencode(redirect_uri)
     end_session_url += "?{}".format(query_string)
     return end_session_url
+# IBL PATCH ENDS
 
 
 def patch():

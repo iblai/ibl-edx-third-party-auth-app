@@ -37,6 +37,7 @@ class IBLConfigurationModelStrategy(DjangoStrategy):
             provider_config = OAuth2ProviderConfig.current(
                 backend.name, self.request.site.id
             )
+            # IBL PATCH ENDS
             if not provider_config.enabled_for_current_site:
                 raise Exception("Can't fetch setting of a disabled backend/provider.")
             try:
@@ -65,9 +66,11 @@ class IBLConfigurationModelStrategy(DjangoStrategy):
 
         # At this point, we know 'name' is not set in a [OAuth2|LTI|SAML]ProviderConfig row.
         # It's probably a global Django setting like 'FIELDS_STORED_IN_SESSION':
+        # IBL PATCH STARTS
         return super(IBLConfigurationModelStrategy, self).setting(
             name, default, backend
         )
+        # IBL PATCH ENDS
 
 
 def patch():

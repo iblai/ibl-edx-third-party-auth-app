@@ -21,6 +21,7 @@ def _enabled_providers(cls):
         key_values and current.
     - iterate over backend_name, site instead of just backend_name
     """
+    # IBL PATCH STARTS
     oauth2_backend_names = OAuth2ProviderConfig.key_values("backend_name", "site_id")
     for oauth2_backend_name, site in oauth2_backend_names:
         provider = OAuth2ProviderConfig.current(oauth2_backend_name, site)
@@ -53,11 +54,13 @@ def get_enabled_by_backend_name(cls, backend_name):
     - iterate over backend_name, site instead of just backend_name
     """
     if backend_name in _PSA_OAUTH2_BACKENDS:
+        # IBL PATCH STARTS
         oauth2_backend_names = OAuth2ProviderConfig.key_values(
             "backend_name", "site_id"
         )
         for oauth2_backend_name, site in oauth2_backend_names:
             provider = OAuth2ProviderConfig.current(oauth2_backend_name, site)
+        # IBL PATCH ENDS
             if (
                 provider.backend_name == backend_name
                 and provider.enabled_for_current_site
