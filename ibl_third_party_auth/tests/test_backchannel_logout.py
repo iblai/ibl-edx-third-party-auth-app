@@ -43,7 +43,7 @@ class BaseTestCase(TestCase, ThirdPartyAuthTestMixin):
         super(BaseTestCase, cls).setUpClass()
         cls.site = SiteFactory(domain='0.testserver.fake')
         cls.factory = RequestFactory()
-        cls.url = reverse('tpa-backchannel-logout', kwargs={'backend': 'keycloak'})
+        cls.url = reverse('ibl_third_party_auth:tpa-backchannel-logout', kwargs={'backend': 'keycloak'})
         cls.provider = 'keycloak'
 
     def setUp(self):
