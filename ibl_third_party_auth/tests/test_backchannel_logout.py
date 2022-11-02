@@ -112,7 +112,7 @@ def test_get_profile_from_sub_raises_multiple_found(user):
 
 
 @mock.patch(
-    "ibl_third_party_auth.provider._PSA_OAUTH2_BACKENDS", ["keycloak"]
+    "common.djangoapps.third_party_auth.provider._PSA_OAUTH2_BACKENDS", ["keycloak"]
 )
 class TestBackchannelLogoutView(BaseTestCase):
     def test_token_not_provided_returns_400(self):
