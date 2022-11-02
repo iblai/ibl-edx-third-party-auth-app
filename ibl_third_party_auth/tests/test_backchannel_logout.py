@@ -112,7 +112,7 @@ def test_get_profile_from_sub_raises_multiple_found(user):
 
 
 @mock.patch(
-    "common.djangoapps.third_party_auth.provider._PSA_OAUTH2_BACKENDS", ["keycloak"]
+    "ibl_third_party_auth.provider._PSA_OAUTH2_BACKENDS", ["keycloak"]
 )
 class TestBackchannelLogoutView(BaseTestCase):
     def test_token_not_provided_returns_400(self):
@@ -155,7 +155,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert "No or Multiple" in self._caplog.messages[-1]
 
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
+        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
     )
     def test_validate_jwt_invalid_token_error_returns_400(self, mock_jwt_val):
         """If InvalidTokenError is raised it returns a 400"""
@@ -166,7 +166,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
+        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
     )
     def test_validate_jwt_jwt_validation_error_returns_400(self, mock_jwt_val):
         """If JwtValidationError is raised it returns a 400"""
@@ -177,7 +177,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
+        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
     )
     def test_validate_jwt_any_other_exception_returns_501(self, mock_jwt_val):
         """If any other exception occurs in validate_jwt, return a 501"""
@@ -188,10 +188,10 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout._get_user_from_sub"
+        "ibl_third_party_auth.backchannel_logout._get_user_from_sub"
     )
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
+        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
     )
     def test_no_social_auth_exists_returns_501(self, mock_jwt_val, mock_user_sub):
         """If UserSocialAuth.DoesNotExist raised, return 501"""
@@ -204,10 +204,10 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert "No UserSocialAuth" in self._caplog.messages[-1]
 
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout._get_user_from_sub"
+        "ibl_third_party_auth.backchannel_logout._get_user_from_sub"
     )
     @mock.patch(
-        "common.djangoapps.third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
+        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
     )
     def test_logout_of_sessions_succeeds_returns_200(self, mock_jwt_val, mock_user_sub):
         """If user has no active sessions, returns 200 and profile meta not changed"""
@@ -232,7 +232,7 @@ class TestLogoutOfSessions(BaseTestCase):
         assert "No active sessions exist" in self._caplog.messages[-1]
 
     @override_settings(FEATURES=LMS_FEATURES)
-    @mock.patch("common.djangoapps.third_party_auth.backchannel_logout.user_logged_out")
+    @mock.patch("ibl_third_party_auth.backchannel_logout.user_logged_out")
     def test_lms_active_session_is_removed(self, mock_logged_out):
         """If active LMS session, it's removed from profile and user logged out"""
         self.client.force_login(self.user)
@@ -252,7 +252,7 @@ class TestLogoutOfSessions(BaseTestCase):
         assert not SESSION_STORE.exists(meta["session_id"])
 
     @override_settings(IBL_CMS_PREVENT_CONCURRENT_LOGINS=True)
-    @mock.patch("common.djangoapps.third_party_auth.backchannel_logout.user_logged_out")
+    @mock.patch("ibl_third_party_auth.backchannel_logout.user_logged_out")
     def test_cms_active_session_is_removed(self, mock_logged_out):
         """If active CMS session, it's removed from profile and user logged out"""
         self.client.force_login(self.user)
@@ -271,7 +271,7 @@ class TestLogoutOfSessions(BaseTestCase):
         assert self.user.profile.get_meta() == {"cms_session_id": None}
         assert not SESSION_STORE.exists(meta["cms_session_id"])
 
-    @mock.patch("common.djangoapps.third_party_auth.backchannel_logout.user_logged_out")
+    @mock.patch("ibl_third_party_auth.backchannel_logout.user_logged_out")
     def test_active_lms_and_cms_sessions_are_removed(self, mock_logged_out):
         """If active LMS and CMS sessions, they're rm'd from profile and user logged out"""
         # Simulate a login in the LMS
