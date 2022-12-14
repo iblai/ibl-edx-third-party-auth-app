@@ -1,7 +1,8 @@
 import os
+from glob import glob
+from os.path import basename, splitext
 from setuptools import setup, find_packages
-
-
+os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 def package_data(pkg, roots):
     """Generic function to find package_data.
 
@@ -23,7 +24,10 @@ setup(
     version='2.0.0',
     description='EdX Third Parth Auth package with IBL specific modifications',
     license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
+    py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
+    include_package_data=True,
     entry_points={
         'lms.djangoapp': [
             'ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig',
