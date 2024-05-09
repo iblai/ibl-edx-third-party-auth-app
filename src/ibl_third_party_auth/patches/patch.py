@@ -11,9 +11,11 @@ def patch():
     - strategy.py - DONE
     - All tests
     """
-    from . import patch_logoutview, patch_models, patch_provider, patch_strategy
+    # from . import patch_logoutview, patch_models, patch_provider, patch_strategy, patch_apple_id
+    # patch_strategy.patch()
+    # patch_provider.patch()
+    # patch_models.patch()
+    # patch_logoutview.patch()
 
-    patch_strategy.patch()
-    patch_provider.patch()
-    patch_models.patch()
-    patch_logoutview.patch()
+    from . import patch_apple_id
+    patch_apple_id.patch()
