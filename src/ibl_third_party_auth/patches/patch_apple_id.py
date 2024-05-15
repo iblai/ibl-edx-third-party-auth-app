@@ -80,6 +80,7 @@ from jwt.exceptions import PyJWTError
 from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from common.djangoapps import third_party_auth
 from social_core.exceptions import AuthFailed
+from django.conf import settings
 
 import logging
 
@@ -102,23 +103,16 @@ class IBLAppleIdAuth(AppleIdAuth):
     TOKEN_AUDIENCE = 'https://appleid.apple.com'
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
-    def get_audience(self):
-        client_id = self.setting('CLIENT')
-        log.info(f"apple-id(override-app)............get_audience: client_id: {client_id}")
-        return self.setting('AUDIENCE', default=[client_id])
-
     def auth_params(self, *args, **kwargs):
         """
         Apple requires to set `response_mode` to `form_post` if `scope`
         parameter is passed.
         """
         params = super().auth_params(*args, **kwargs)
-        log.info(f"apple-id(override-app)............auth_params: params: {params}")
         if self.RESPONSE_MODE:
             params['response_mode'] = self.RESPONSE_MODE
         elif self.get_scope():
             params['response_mode'] = 'form_post'
-        log.info(f"apple-id(override-app)............auth_params: params: {params}")
         return params
 
     def get_private_key(self):
@@ -126,26 +120,16 @@ class IBLAppleIdAuth(AppleIdAuth):
         Return contents of the private key file. Override this method to provide
         secret key from another source if needed.
         """
-        log.info(f"apple-id(override-app)............ get_provate_key: {self.setting('SECRET')}")
         return self.setting('SECRET')
 
     def generate_client_secret(self):
         now = int(time.time())
         client_id = self.setting('CLIENT')
         team_id = self.setting('TEAM')
-        # key_id = self.setting('KEY')
-        key_id = "YNN5UQJYF5"
+        key_id = settings.SOCIAL_AUTH_APPLE_ID_KEY if hasattr(settings, 'SOCIAL_AUTH_APPLE_ID_KEY') else ''
         private_key = self.get_private_key()
-
-        log.info(f"apple-id(override-app)............generate_client_secret: now: {now}")
-        log.info(f"apple-id(override-app)............generate_client_secret: client_id: {client_id}")
-        log.info(f"apple-id(override-app)............generate_client_secret: team_id: {team_id}")
-        log.info(f"apple-id(override-app)............generate_client_secret: key_id: {key_id}")
-        log.info(f"apple-id(override-app)............generate_client_secret: private_key: {private_key}")
-
         headers = {'kid': key_id}
 
-        log.info(f"apple-id(override-app)............generate_client_secret: headers: {headers}")
         payload = {
             'iss': team_id,
             'iat': now,
@@ -153,72 +137,18 @@ class IBLAppleIdAuth(AppleIdAuth):
             'aud': self.TOKEN_AUDIENCE,
             'sub': client_id,
         }
-        log.info(f"apple-id(override-app)............generate_client_secret: payload: {payload}")
         return jwt.encode(payload, key=private_key, algorithm='ES256',
                           headers=headers)
 
-    def get_key_and_secret(self):
-        client_id = self.setting('CLIENT')
-        client_secret = self.generate_client_secret()
-
-        log.info(f"apple-id(override-app)............get_key_and_secret: client_id: {client_id}")
-        log.info(f"apple-id(override-app)............get_key_and_secret: client_secret: {client_secret}")
-        return client_id, client_secret
-
-    def get_apple_jwk(self, kid=None):
-        """
-        Return requested Apple public key or all available.
-        """
-        keys = self.get_json(url=self.JWK_URL).get('keys')
-        log.info(f"apple-id(override-app)............get_apple_jwk: keys: {keys}")
-        if not isinstance(keys, list) or not keys:
-            raise AuthFailed(self, 'Invalid jwk response')
-
-        if kid:
-            log.info(f"apple-id(override-app)............get_apple_jwk: kid: {kid}")
-            return json.dumps([key for key in keys if key['kid'] == kid][0])
-        else:
-            return (json.dumps(key) for key in keys)
-
-    def decode_id_token(self, id_token):
-        """
-        Decode and validate JWT token from apple and return payload including
-        user data.
-        """
-        log.info(f"apple-id(override-app)............decode_id_token")
-        if not id_token:
-            raise AuthFailed(self, 'Missing id_token parameter')
-
-        try:
-            kid = jwt.get_unverified_header(id_token).get('kid')
-            public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
-            decoded = jwt.decode(
-                id_token,
-                key=public_key,
-                audience=self.get_audience(),
-                algorithms=['RS256'],
-            )
-        except PyJWTError:
-            raise AuthFailed(self, 'Token validation failed')
-
-        return decoded
-
     def get_user_details(self, response):
-        log.info(f"apple-id(override-app)............get_user_details")
-        log.info(f"apple-id(override-app)............get_user_details: response: {response}")
         name = response.get('name') or {}
         email = response.get('email', '')
-        log.info(f"apple-id(override-app)............get_user_details: email: {email}")
         fullname, first_name, last_name = self.get_user_names(
             fullname=str(email).split('@')[0],
             first_name=name.get('firstName', ''),
             last_name=name.get('lastName', '')
         )
-        log.info(f"apple-id(override-app)............get_user_detailsh: name: {name}   fullname: {fullname} first_name: {first_name}   last_name: {last_name}")
-        #email = response.get('email', '')
         apple_id = response.get(self.ID_KEY, '')
-        log.info(f"apple-id(override-app)............get_user_detailsh: email: {email}")
-        log.info(f"apple-id(override-app)............get_user_detailsh: applr_id: {apple_id}")
         # prevent updating User with empty strings
         user_details = {
             'fullname': str(email).split('@')[0],
@@ -226,34 +156,12 @@ class IBLAppleIdAuth(AppleIdAuth):
             'last_name': last_name or str(email).split('@')[0],
             'email': email,
         }
-        log.info(f"apple-id(override-app)............get_user_detailsh: user_details: {user_details}")
-        EMAIL_AS_USERNAME = True
         if email and self.setting('EMAIL_AS_USERNAME'):
-        #if email and EMAIL_AS_USERNAME:
             user_details['username'] = email
         if apple_id and not self.setting('EMAIL_AS_USERNAME'):
-        #if apple_id and not EMAIL_AS_USERNAME:
             user_details['username'] = apple_id
 
         return user_details
-
-    def do_auth(self, access_token, *args, **kwargs):
-        log.info(f"apple-id(override-app)............do_auth")
-        response = kwargs.pop('response', None) or {}
-        jwt_string = response.get(self.TOKEN_KEY) or access_token
-        log.info(f"apple-id(override-app)............do_auth: response: {response}")
-        log.info(f"apple-id(override-app)............do_auth: jwt_string: {jwt_string}")
-        if not jwt_string:
-            raise AuthFailed(self, 'Missing id_token parameter')
-
-        decoded_data = self.decode_id_token(jwt_string)
-        log.info(f"apple-id(override-app)............do_auth: decoded_data: {decoded_data}")
-        return super().do_auth(
-            access_token,
-            response=decoded_data,
-            *args,
-            **kwargs
-        )
 
 def patch():
     third_party_auth.appleid.AppleIdAuth = IBLAppleIdAuth

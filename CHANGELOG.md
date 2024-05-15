@@ -1,4 +1,6 @@
 # ChangeLog
+## 2.0.1
+- Add override for apple-id SSO flow
 
 ## 2.0.0 - 2021-06-15
 - Adds KOA support
