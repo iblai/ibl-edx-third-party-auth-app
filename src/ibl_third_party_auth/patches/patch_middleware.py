@@ -1,4 +1,8 @@
+import logging
+
 import six.moves.urllib.parse
+from common.djangoapps.student.helpers import get_next_url_for_login_page
+from common.djangoapps.third_party_auth import middleware, pipeline
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -6,15 +10,9 @@ from django.utils.deprecation import MiddlewareMixin
 from django.utils.translation import gettext as _
 from requests import HTTPError
 from social_django.middleware import SocialAuthExceptionMiddleware
-from common.djangoapps import third_party_auth
-
-from common.djangoapps.student.helpers import get_next_url_for_login_page
-
-from common.djangoapps.third_party_auth import pipeline
-
-import logging
 
 log = logging.getLogger(__name__)
+
 
 class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
     """Custom middleware that handles conditional redirection."""
@@ -38,18 +36,24 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
         """Handles specific exception raised by Python Social Auth eg HTTPError."""
         log.exception(exception)
         log.info(f"{exception.response.content=}")
-        referer_url = request.META.get('HTTP_REFERER', '')
+        referer_url = request.META.get("HTTP_REFERER", "")
 
-
-        if (referer_url and isinstance(exception, HTTPError) and
-                exception.response.status_code == 502):
+        if (
+            referer_url
+            and isinstance(exception, HTTPError)
+            and exception.response.status_code == 502
+        ):
             referer_url = six.moves.urllib.parse.urlparse(referer_url).path
-            if referer_url == reverse('signin_user'):
-                messages.error(request, _('Unable to connect with the external provider, please try again'),
-                               extra_tags='social-auth')
+            if referer_url == reverse("signin_user"):
+                messages.error(
+                    request,
+                    _("Unable to connect with the external provider, please try again"),
+                    extra_tags="social-auth",
+                )
                 redirect_url = get_next_url_for_login_page(request)
-                return redirect('/login?next=' + redirect_url)
+                return redirect("/login?next=" + redirect_url)
         return super().process_exception(request, exception)
 
+
 def patch():
-    third_party_auth.middleware.ExceptionMiddleware = IBLExceptionMiddleware
+    middleware.ExceptionMiddleware = IBLExceptionMiddleware

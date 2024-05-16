@@ -72,35 +72,35 @@ Settings:
 """
 
 import json
+import logging
 import time
 
 import jwt
+from common.djangoapps.third_party_auth import appleid
+from common.djangoapps.third_party_auth.appleid import AppleIdAuth
+from django.conf import settings
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
-from common.djangoapps.third_party_auth.appleid import AppleIdAuth
-from common.djangoapps import third_party_auth
 from social_core.exceptions import AuthFailed
-from django.conf import settings
-
-import logging
 
 log = logging.getLogger(__name__)
 
-class IBLAppleIdAuth(AppleIdAuth):
-    name = 'apple-id'
 
-    JWK_URL = 'https://appleid.apple.com/auth/keys'
-    AUTHORIZATION_URL = 'https://appleid.apple.com/auth/authorize'
-    ACCESS_TOKEN_URL = 'https://appleid.apple.com/auth/token'
-    ACCESS_TOKEN_METHOD = 'POST'
+class IBLAppleIdAuth(AppleIdAuth):
+    name = "apple-id"
+
+    JWK_URL = "https://appleid.apple.com/auth/keys"
+    AUTHORIZATION_URL = "https://appleid.apple.com/auth/authorize"
+    ACCESS_TOKEN_URL = "https://appleid.apple.com/auth/token"
+    ACCESS_TOKEN_METHOD = "POST"
     RESPONSE_MODE = None
 
-    ID_KEY = 'sub'
-    TOKEN_KEY = 'id_token'
+    ID_KEY = "sub"
+    TOKEN_KEY = "id_token"
     STATE_PARAMETER = True
     REDIRECT_STATE = False
 
-    TOKEN_AUDIENCE = 'https://appleid.apple.com'
+    TOKEN_AUDIENCE = "https://appleid.apple.com"
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
     def auth_params(self, *args, **kwargs):
@@ -110,9 +110,9 @@ class IBLAppleIdAuth(AppleIdAuth):
         """
         params = super().auth_params(*args, **kwargs)
         if self.RESPONSE_MODE:
-            params['response_mode'] = self.RESPONSE_MODE
+            params["response_mode"] = self.RESPONSE_MODE
         elif self.get_scope():
-            params['response_mode'] = 'form_post'
+            params["response_mode"] = "form_post"
         return params
 
     def get_private_key(self):
@@ -120,48 +120,52 @@ class IBLAppleIdAuth(AppleIdAuth):
         Return contents of the private key file. Override this method to provide
         secret key from another source if needed.
         """
-        return self.setting('SECRET')
+        return self.setting("SECRET")
 
     def generate_client_secret(self):
         now = int(time.time())
-        client_id = self.setting('CLIENT')
-        team_id = self.setting('TEAM')
-        key_id = settings.SOCIAL_AUTH_APPLE_ID_KEY if hasattr(settings, 'SOCIAL_AUTH_APPLE_ID_KEY') else ''
+        client_id = self.setting("CLIENT")
+        team_id = self.setting("TEAM")
+        key_id = (
+            settings.SOCIAL_AUTH_APPLE_ID_KEY
+            if hasattr(settings, "SOCIAL_AUTH_APPLE_ID_KEY")
+            else ""
+        )
         private_key = self.get_private_key()
-        headers = {'kid': key_id}
+        headers = {"kid": key_id}
 
         payload = {
-            'iss': team_id,
-            'iat': now,
-            'exp': now + self.TOKEN_TTL_SEC,
-            'aud': self.TOKEN_AUDIENCE,
-            'sub': client_id,
+            "iss": team_id,
+            "iat": now,
+            "exp": now + self.TOKEN_TTL_SEC,
+            "aud": self.TOKEN_AUDIENCE,
+            "sub": client_id,
         }
-        return jwt.encode(payload, key=private_key, algorithm='ES256',
-                          headers=headers)
+        return jwt.encode(payload, key=private_key, algorithm="ES256", headers=headers)
 
     def get_user_details(self, response):
-        name = response.get('name') or {}
-        email = response.get('email', '')
+        name = response.get("name") or {}
+        email = response.get("email", "")
         fullname, first_name, last_name = self.get_user_names(
-            fullname=str(email).split('@')[0],
-            first_name=name.get('firstName', ''),
-            last_name=name.get('lastName', '')
+            fullname=str(email).split("@")[0],
+            first_name=name.get("firstName", ""),
+            last_name=name.get("lastName", ""),
         )
-        apple_id = response.get(self.ID_KEY, '')
+        apple_id = response.get(self.ID_KEY, "")
         # prevent updating User with empty strings
         user_details = {
-            'fullname': str(email).split('@')[0],
-            'first_name': first_name or str(email).split('@')[0],
-            'last_name': last_name or str(email).split('@')[0],
-            'email': email,
+            "fullname": str(email).split("@")[0],
+            "first_name": first_name or str(email).split("@")[0],
+            "last_name": last_name or str(email).split("@")[0],
+            "email": email,
         }
-        if email and self.setting('EMAIL_AS_USERNAME'):
-            user_details['username'] = email
-        if apple_id and not self.setting('EMAIL_AS_USERNAME'):
-            user_details['username'] = apple_id
+        if email and self.setting("EMAIL_AS_USERNAME"):
+            user_details["username"] = email
+        if apple_id and not self.setting("EMAIL_AS_USERNAME"):
+            user_details["username"] = apple_id
 
         return user_details
 
+
 def patch():
-    third_party_auth.appleid.AppleIdAuth = IBLAppleIdAuth
+    appleid.AppleIdAuth = IBLAppleIdAuth
