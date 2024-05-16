@@ -1,7 +1,8 @@
 import os
-from setuptools import setup, find_packages
 from glob import glob
 from os.path import basename, splitext
+
+from setuptools import find_packages, setup
 
 
 def package_data(pkg, roots):
@@ -22,7 +23,7 @@ def package_data(pkg, roots):
 
 setup(
     name='ibl-third-party-auth',
-    version='2.0.1',
+    version='2.0.2',
     install_requires=[
         "ddt",
         "social-auth-app-django",
