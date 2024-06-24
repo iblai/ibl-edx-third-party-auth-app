@@ -35,7 +35,11 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
     def process_exception(self, request, exception):
         """Handles specific exception raised by Python Social Auth eg HTTPError."""
         log.exception(exception)
-        log.info(f"{exception.response.content=}")
+        # Check if the exception has the 'response' attribute
+        if hasattr(exception, 'response'):
+            log.info(f"exception.response.content={exception.response.content}")
+        else:
+            log.info("Exception does not have a 'response' attribute.")
         referer_url = request.META.get("HTTP_REFERER", "")
 
         if (
