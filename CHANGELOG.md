@@ -1,4 +1,7 @@
 # ChangeLog
+## 2.0.3
+- Update to the process_exception logging
+  
 ## 2.0.1
 - Add override for apple-id SSO flow
 
