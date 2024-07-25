@@ -24,9 +24,9 @@ def plugin_settings(settings):  # pylint: disable=unused-argument
     """
     backends = getattr(settings, 'AUTHENTICATION_BACKENDS', None)
     if backends:
-        settings.AUTHENTICATION_BACKENDS.insert(0, 'ibl_third_party_auth.backends.KeycloakOAuth2')
+        settings.AUTHENTICATION_BACKENDS.insert(0, 'social_core.backends.google_openidconnect.GoogleOpenIdConnect')
     else:
-        settings.AUTHENTICATION_BACKENDS = ['ibl_third_party_auth.backends.KeycloakOAuth2']
+        settings.AUTHENTICATION_BACKENDS = ['social_core.backends.google_openidconnect.GoogleOpenIdConnect']
 
     # Have to add to CMS's INSTALLED_APPS
     tpa = 'common.djangoapps.third_party_auth'

@@ -3,6 +3,7 @@ Extra views required for SSO
 """
 
 import logging
+
 from django.views.decorators.csrf import csrf_exempt
 
 from ibl_third_party_auth import backchannel_logout

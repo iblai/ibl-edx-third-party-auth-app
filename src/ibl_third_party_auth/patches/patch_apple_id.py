@@ -143,9 +143,47 @@ class IBLAppleIdAuth(AppleIdAuth):
         }
         return jwt.encode(payload, key=private_key, algorithm="ES256", headers=headers)
 
+    def get_apple_jwk(self, kid=None):
+        """
+        Return requested Apple public key or all available.
+        """
+        keys = self.get_json(url=self.JWK_URL).get('keys')
+
+        if not isinstance(keys, list) or not keys:
+            raise AuthFailed(self, 'Invalid jwk response')
+
+        if kid:
+            return json.dumps([key for key in keys if key['kid'] == kid][0])
+        else:
+            return (json.dumps(key) for key in keys)
+
+    def decode_id_token(self, id_token):
+        """
+        Decode and validate JWT token from apple and return payload including
+        user data.
+        """
+        if not id_token:
+            raise AuthFailed(self, 'Missing id_token parameter')
+
+        try:
+            kid = jwt.get_unverified_header(id_token).get('kid')
+            public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
+            decoded = jwt.decode(
+                id_token,
+                key=public_key,
+                audience=self.get_audience(),
+                algorithms=['RS256'],
+            )
+        except PyJWTError:
+            raise AuthFailed(self, 'Token validation failed')
+
+        return decoded
+
     def get_user_details(self, response):
         name = response.get("name") or {}
         email = response.get("email", "")
+        if not email:
+            log.error("No email supplied w/ appleid login: %s", response)
         fullname, first_name, last_name = self.get_user_names(
             fullname=str(email).split("@")[0],
             first_name=name.get("firstName", ""),
