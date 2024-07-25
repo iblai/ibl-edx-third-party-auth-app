@@ -21,6 +21,7 @@ from ibl_user_management_api.utils.request import (
 )
 from jose import jwk, jwt
 from jose.utils import base64url_decode
+from openedx.core.djangoapps.auth_exchange.views import AccessTokenExchangeBase
 from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
 from openedx.core.djangoapps.user_api.errors import UserNotFound
 from openedx.core.lib.api.view_utils import view_auth_classes
@@ -36,6 +37,9 @@ from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
 
 log = logging.getLogger(__name__)
 
+class CustomAccessTokenExchange(AccessTokenExchangeBase):
+    def exchange_access_token(self, data):
+        return super().exchange_access_token(data)
 
 class IblUserManagementView(APIView, IBLAppleIdAuth):
     """
@@ -109,7 +113,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             if claims['exp'] < time.time():
                 return False
 
-            return claims
+            return True
         except Exception as e:
             print(f"Token verification failed: {e}")
             return False
@@ -138,7 +142,30 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         try:
             log.info("Decoding id token.........")
             decoded_data = self.verify_apple_access_token(id_token)
-            return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
+            log.info(f"Decoded data: {decoded_data}")
+            if not decoded_data:
+                return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
+            user_account_created = self.create_user_account(request)
+
+            if user_account_created:
+                # Prepare data for exchange_access_token
+                exchange_data = {
+                    "client_id" : request.data.get("client_id"),
+                    "asymmetric_jwt" : request.data.get("asymmetric_jwt"),
+                    "token_type" : request.data.get("token_type"),
+                    "access_token" : request.data.get("access_token"),
+                    "scope" : request.data.get("scope"),
+                    "email" : request.data.get("email")
+                }
+
+                # Call exchange_access_token
+                exchange_instance = CustomAccessTokenExchange()
+                access_token = exchange_instance.exchange_access_token(exchange_data)
+                log.info(f"Access token: {access_token}")
+
+                return Response({'access_token': access_token}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'User account creation failed'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -148,13 +175,6 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
         import re
 
-        # Extract new parameters
-
-        client_id = params.get("client_id")
-        asymmetric_jwt = params.get("asymmetric_jwt")
-        token_type = params.get("token_type")
-        access_token = params.get("access_token")
-        scope = params.get("scope")
         email = params.get("email")
         first_name = params.get("first_name")
         last_name = params.get("last_name")
@@ -184,4 +204,5 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
         # Create or update user
         user, user_response = create_or_update_user(params)
+        log.info(f"user: {user} user_response: {user_response}")
         return user_response
