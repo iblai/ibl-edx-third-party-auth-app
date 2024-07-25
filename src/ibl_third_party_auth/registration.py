@@ -128,7 +128,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
     def create_user_account(self, request):
         params = request.data
-        log.info("Params: %s", params)
+
 
         import re
 
@@ -147,13 +147,16 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         else:
             return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
 
-        params["name"] = name
-        params["username"] = username
+        data = {
+            "name" : name,
+            "email" : email,
+            "username" : username
+        }
 
-        validation_response = validate_user_params(params)
+        validation_response = validate_user_params(data)
         if validation_response:
             return validation_response
 
-        user, user_response = create_or_update_user(params)
+        user, user_response = create_or_update_user(data)
 
         return user_response
