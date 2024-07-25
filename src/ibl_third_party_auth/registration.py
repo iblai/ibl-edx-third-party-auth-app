@@ -88,7 +88,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
     def verify_google_access_token(self, id_token, access_token):
         opene_id_connect = OpenIdConnectAuth()
-        return opene_id_connect.verify_and_decode_id_token(id_token, access_token)
+        return opene_id_connect.validate_and_return_id_token(id_token, access_token)
 
     def post(self, request, format=None):
         """
