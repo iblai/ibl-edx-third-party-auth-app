@@ -100,9 +100,9 @@ class IblUserManagementView(APIView, AppleIdAuth):
         last_name (optional): Last name of user
         """
         log.info("User registration request.........")
-        params = request.data
-        log.info("Params: %s", params)
-        
+        # params = request.data
+        # log.info("Params: %s", params)
+
         self.strategy = load_strategy(request)
         access_token = request.data.get('access_token')
         backend = request.data.get("backend")
