@@ -110,7 +110,8 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             else:
                 return Response({'error': 'Account could not be created'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            log.error("Error creating user: %s", e)
+            return Response({'error': "Account could not be created"}, status=status.HTTP_400_BAD_REQUEST)
 
     def create_user_account(self, request):
         params = request.data
@@ -122,9 +123,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         first_name = params.get("first_name")
         last_name = params.get("last_name")
 
-        if first_name and last_name:
-            name = f"{first_name} {last_name}"
-        elif email:
+        if email:
             local_part = email.split('@')[0]
             domain_part = email.split('@')[1].replace('.', '_')
             local_part = re.sub(r'\W+', '_', local_part)
@@ -132,6 +131,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             username = f"{local_part}_{domain_part}"
         else:
             return False
+
+        if first_name and last_name:
+            name = f"{first_name} {last_name}"
 
         data = {
             "name" : name,
