@@ -6,7 +6,7 @@ class UserUtils():
     def __init__(self):
         self.user_model = get_user_model()
 
-    def create_user(self, username, email, password, first_name=None, last_name=None):
+    def create_user(self, username, email, first_name=None, last_name=None):
         """
         Create a new user
         """

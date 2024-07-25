@@ -128,24 +128,11 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             local_part = email.split('@')[0]
             domain_part = email.split('@')[1].replace('.', '_')
             local_part = re.sub(r'\W+', '_', local_part)
-            name = local_part.replace('_', ' ')
             username = f"{local_part}_{domain_part}"
         else:
             return False
 
-        if first_name and last_name:
-            name = f"{first_name} {last_name}"
-
-        data = {
-            "name" : name,
-            "email" : email,
-            "username" : username
-        }
-
-        validation_response = validate_user_params(data)
-        if validation_response:
-            return validation_response
         user_utils = UserUtils()
-        user_response = user_utils.create_user(data)
+        user_response = user_utils.create_user(username, email, first_name, last_name)
 
         return user_response
