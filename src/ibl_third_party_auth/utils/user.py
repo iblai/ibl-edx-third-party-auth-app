@@ -1,5 +1,6 @@
 import logging
 
+from common.djangoapps.student.models import UserProfile
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from ibl_user_management_api.utils.main import retrieve_user
@@ -18,10 +19,11 @@ class UserUtils():
         if created:
             user = retrieve_user(username)
             if first_name and last_name:
-                user.profile.name = f"{first_name}_{last_name}"
+                name = first_name + " " + last_name
+                profile = UserProfile(user=user, name=name)
             else:
-                user.profile.name = username
-            user.save()
+                profile = UserProfile(user=user, name=username)
+            profile.save()
             return True
         else:
             return False
