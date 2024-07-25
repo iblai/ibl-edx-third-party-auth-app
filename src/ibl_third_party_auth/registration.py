@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from social_django.utils import load_strategy
 
 from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
+from ibl_third_party_auth.utils.user import UserUtils
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         validation_response = validate_user_params(data)
         if validation_response:
             return validation_response
-
-        user, user_response = create_or_update_user(data)
+        user_utils = UserUtils()
+        user_response = user_utils.create_user(data)
 
         return user_response
