@@ -25,8 +25,6 @@ class IblUserManagementView(APIView, AppleIdAuth):
     authentication_classes = []
     permission_classes = []
 
-    GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
-
     def create_user_account(self, params):
         import re
 
@@ -99,8 +97,8 @@ class IblUserManagementView(APIView, AppleIdAuth):
                 try:
                     decoded_data = self.decode_id_token(access_token)
                     # process apple request
-                    create_user = self.create_user_account(params)
-                    return Response({'decoded_data': decoded_data, "user": create_user}, status=status.HTTP_200_OK)
+                    self.create_user_account(params)
+                    return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
                 except Exception as e:
                     return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
