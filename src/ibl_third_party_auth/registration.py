@@ -96,6 +96,7 @@ class IblUserManagementView(APIView, AppleIdAuth):
         return user_response
 
     def post(self, request, *args, **kwargs):
+        self.strategy = load_strategy(request)
         id_token = request.data.get('access_token')
         if not id_token:
             return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
