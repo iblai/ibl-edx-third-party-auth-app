@@ -16,6 +16,11 @@ class UserUtils():
         user, created = self.user_model.objects.get_or_create(username=username, email=email, first_name=first_name, last_name=last_name)
         log.info("User created: %s", user)
         if created:
+            if first_name and last_name:
+                user.profile.name = f"{first_name}_{last_name}"
+            else:
+                user.profile.name = username
+            user.save()
             return True
         else:
             return False

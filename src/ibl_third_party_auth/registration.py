@@ -132,10 +132,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         else:
             return False
 
-        log.info(f"Creating user with username: {username} and email: {email}")
-
         user_utils = UserUtils()
         user_response = user_utils.create_user(username, email, first_name, last_name)
-        log.info("User created: %s", user_response)
 
         return user_response
