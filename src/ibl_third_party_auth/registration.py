@@ -76,23 +76,53 @@ class IblUserManagementView(APIView):
         """
         Create user with the manage_user command.
 
-        username: Username
+        client_id: Client ID
+        asymmetric_jwt: Asymmetric JWT
+        token_type: Token type
+        access_token: Access token
+        scope: Scope
         email: User email
-        name: Name of user
-        password (optional): If unsupplied, an unused password used as placeholder
-        provider (optional): Supply the provider to link with.
-        is_staff (optional): Defaults to false
-        is_active (optional): Defaults to true on create
-        update (optional): Update user information
-        force_create (TODO)
+        first_name (optional): First name of user
+        last_name (optional): Last name of user
         """
         log.info("User registration request.........")
-        # Check for admin user
-        # if not (request.user.is_superuser or request.user.is_staff):
-        #     return Response(status=404)
 
         params = request.data
         log.info("Params: %s", params)
+
+        import re
+
+        # Extract new parameters
+        client_id = params.get("client_id")
+        asymmetric_jwt = params.get("asymmetric_jwt")
+        token_type = params.get("token_type")
+        access_token = params.get("access_token")
+        scope = params.get("scope")
+        email = params.get("email")
+        first_name = params.get("first_name")
+        last_name = params.get("last_name")
+
+        # Generate name and username
+        if first_name and last_name:
+            name = f"{first_name} {last_name}"
+        elif email:
+            local_part = email.split('@')[0]
+            domain_part = email.split('@')[1].replace('.', '_')
+            local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
+            name = local_part.replace('_', ' ')
+            username = f"{local_part}_{domain_part}"
+        else:
+            return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
+
+        # Update params with generated name and username
+        params["name"] = name
+        params["username"] = username
+
+        # Update params with generated name and username
+        params["name"] = name
+        params["username"] = username
+
+        log.info("Updated params: %s", params)
 
         # Validate request parameters
         validation_response = validate_user_params(params)
