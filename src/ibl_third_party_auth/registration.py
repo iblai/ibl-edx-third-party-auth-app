@@ -32,10 +32,12 @@ from rest_framework.views import APIView
 from social_core.backends.oauth import BaseOAuth2
 from social_django.utils import load_backend, load_strategy
 
+from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
+
 log = logging.getLogger(__name__)
 
 
-class IblUserManagementView(APIView, AppleIdAuth):
+class IblUserManagementView(APIView, IBLAppleIdAuth):
     """
     User API extension.
     """
