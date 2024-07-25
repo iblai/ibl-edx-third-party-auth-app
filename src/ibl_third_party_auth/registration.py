@@ -129,6 +129,10 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             domain_part = email.split('@')[1].replace('.', '_')
             local_part = re.sub(r'\W+', '_', local_part)
             username = f"{local_part}_{domain_part}"
+            if not first_name:
+                first_name = local_part
+            if not last_name:
+                last_name = local_part
         else:
             return False
 
