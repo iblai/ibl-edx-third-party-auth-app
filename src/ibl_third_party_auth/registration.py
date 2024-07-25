@@ -42,49 +42,49 @@ class IblUserManagementView(APIView, AppleIdAuth):
     authentication_classes = []
     permission_classes = []
 
-    def create_user_account(self, request):
-        params = request.data
-        log.info("Params: %s", params)
+    # def create_user_account(self, request):
+    #     params = request.data
+    #     log.info("Params: %s", params)
 
-        import re
+    #     import re
 
-        # Extract new parameters
+    #     # Extract new parameters
 
-        client_id = params.get("client_id")
-        asymmetric_jwt = params.get("asymmetric_jwt")
-        token_type = params.get("token_type")
-        access_token = params.get("access_token")
-        scope = params.get("scope")
-        email = params.get("email")
-        first_name = params.get("first_name")
-        last_name = params.get("last_name")
+    #     client_id = params.get("client_id")
+    #     asymmetric_jwt = params.get("asymmetric_jwt")
+    #     token_type = params.get("token_type")
+    #     access_token = params.get("access_token")
+    #     scope = params.get("scope")
+    #     email = params.get("email")
+    #     first_name = params.get("first_name")
+    #     last_name = params.get("last_name")
 
-        # Generate name and username
-        if first_name and last_name:
-            name = f"{first_name} {last_name}"
-        elif email:
-            local_part = email.split('@')[0]
-            domain_part = email.split('@')[1].replace('.', '_')
-            local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
-            name = local_part.replace('_', ' ')
-            username = f"{local_part}_{domain_part}"
-        else:
-            return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
+    #     # Generate name and username
+    #     if first_name and last_name:
+    #         name = f"{first_name} {last_name}"
+    #     elif email:
+    #         local_part = email.split('@')[0]
+    #         domain_part = email.split('@')[1].replace('.', '_')
+    #         local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
+    #         name = local_part.replace('_', ' ')
+    #         username = f"{local_part}_{domain_part}"
+    #     else:
+    #         return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
 
-        # Update params with generated name and username
-        params["name"] = name
-        params["username"] = username
+    #     # Update params with generated name and username
+    #     params["name"] = name
+    #     params["username"] = username
 
-        log.info("Updated params: %s", params)
+    #     log.info("Updated params: %s", params)
 
-        # Validate request parameters
-        validation_response = validate_user_params(params)
-        if validation_response:
-            return validation_response
+    #     # Validate request parameters
+    #     validation_response = validate_user_params(params)
+    #     if validation_response:
+    #         return validation_response
 
-        # Create or update user
-        user, user_response = create_or_update_user(params)
-        return user_response
+    #     # Create or update user
+    #     user, user_response = create_or_update_user(params)
+    #     return user_response
 
     def post(self, request, format=None):
         """
@@ -100,6 +100,9 @@ class IblUserManagementView(APIView, AppleIdAuth):
         last_name (optional): Last name of user
         """
         log.info("User registration request.........")
+        params = request.data
+        log.info("Params: %s", params)
+        
         self.strategy = load_strategy(request)
         access_token = request.data.get('access_token')
         backend = request.data.get("backend")
