@@ -105,8 +105,10 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             if not decoded_data:
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
             create_user = self.create_user_account(request)
-
-            return create_user
+            if create_user:
+                return Response({'message': 'Account created successfully'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Account could not be created'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -129,7 +131,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             name = local_part.replace('_', ' ')
             username = f"{local_part}_{domain_part}"
         else:
-            return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
+            return False
 
         data = {
             "name" : name,
