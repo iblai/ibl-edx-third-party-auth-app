@@ -56,12 +56,15 @@ class IblUserManagementView(APIView, AppleIdAuth):
         last_name (optional): Last name of user
         """
         log.info("User registration request.........")
+        import remote_pdb
+        remote_pdb.RemotePdb('0.0.0.0', 4444).set_trace()
         self.strategy = load_strategy(request)
         id_token = request.data.get('access_token')
         log.info(f"id_token: {id_token}" )
         if not id_token:
             return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            log.info("Decoding id token.........")
             decoded_data = self.decode_id_token(id_token)
             return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
         except Exception as e:
