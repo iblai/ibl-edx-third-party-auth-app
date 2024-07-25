@@ -149,8 +149,6 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
             access_token = self.create_user_account(request)
 
-
-
             return Response({'access_token': access_token}, status=status.HTTP_200_OK)
             # else:
             #     return Response({'error': 'User account creation failed'}, status=status.HTTP_400_BAD_REQUEST)
@@ -202,4 +200,4 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             exchange_instance = CustomAccessTokenExchange()
             access_token = exchange_instance.exchange_access_token(request, user, params.get("scope"), params.get("client_id"))
             log.info(f"Access token: {access_token}")
-        return user_response
+        return access_token
