@@ -93,7 +93,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             log.info(f"Claims: {claims}")
 
             # Example claim validation (you can add more as needed)
-            if claims['aud'] != settings.CLIENT:
+            if claims['aud'] != self.setting('CLIENT'):
                 return False
             if claims['exp'] < time.time():
                 return False
