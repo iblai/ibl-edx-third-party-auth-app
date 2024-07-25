@@ -5,6 +5,7 @@ import logging
 import time
 
 import requests
+from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -23,6 +24,7 @@ from jose.utils import base64url_decode
 from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
 from openedx.core.djangoapps.user_api.errors import UserNotFound
 from openedx.core.lib.api.view_utils import view_auth_classes
+from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
@@ -32,7 +34,7 @@ from social_core.backends.oauth import BaseOAuth2
 log = logging.getLogger(__name__)
 
 
-class IblUserManagementView(APIView,BaseOAuth2):
+class IblUserManagementView(APIView, AppleIdAuth):
     """
     User API extension.
     """
@@ -84,6 +86,7 @@ class IblUserManagementView(APIView,BaseOAuth2):
             log.info(f"Subject: {claims['sub']}")
             log.info(f"Issuer: {claims['iss']}")
             log.info(f"Email: {claims.get('email')}")
+
             log.info(f"client_id: {self.setting('CLIENT')}")
 
             if claims['aud'] != self.setting('CLIENT'):
@@ -161,62 +164,72 @@ class IblUserManagementView(APIView,BaseOAuth2):
         """
         log.info("User registration request.........")
 
-        params = request.data
-        log.info("Params: %s", params)
+        id_token = request.data.get('access_token')
+        if not id_token:
+            return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
 
-        import re
+        try:
+            decoded_data = self.decode_id_token(id_token)
+            return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract new parameters
-        backend = params.get("backend")
-        client_id = params.get("client_id")
-        asymmetric_jwt = params.get("asymmetric_jwt")
-        token_type = params.get("token_type")
-        access_token = params.get("access_token")
-        scope = params.get("scope")
-        email = params.get("email")
-        first_name = params.get("first_name")
-        last_name = params.get("last_name")
+        # params = request.data
+        # log.info("Params: %s", params)
 
-        # Verify access token if backend is provided
-        if backend:
-            if backend == "apple-id":
-                is_valid = self.verify_apple_access_token(access_token)
-                if is_valid:
-                    return "The access_token is valid."
-            elif backend == "google-oauth2":
-                is_valid = self.verify_google_access_token(access_token)
-                if is_valid:
-                    return "The access_token is valid."
-            else:
-                return Response({"error": "Unsupported backend."}, status=400)
+        # import re
 
-            if not is_valid:
-                return Response({"error": "Invalid access token."}, status=400)
+        # # Extract new parameters
+        # backend = params.get("backend")
+        # client_id = params.get("client_id")
+        # asymmetric_jwt = params.get("asymmetric_jwt")
+        # token_type = params.get("token_type")
+        # access_token = params.get("access_token")
+        # scope = params.get("scope")
+        # email = params.get("email")
+        # first_name = params.get("first_name")
+        # last_name = params.get("last_name")
 
-        # Generate name and username
-        if first_name and last_name:
-            name = f"{first_name} {last_name}"
-        elif email:
-            local_part = email.split('@')[0]
-            domain_part = email.split('@')[1].replace('.', '_')
-            local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
-            name = local_part.replace('_', ' ')
-            username = f"{local_part}_{domain_part}"
-        else:
-            return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
+        # # Verify access token if backend is provided
+        # if backend:
+        #     if backend == "apple-id":
+        #         is_valid = self.verify_apple_access_token(access_token)
+        #         if is_valid:
+        #             return "The access_token is valid."
+        #     elif backend == "google-oauth2":
+        #         is_valid = self.verify_google_access_token(access_token)
+        #         if is_valid:
+        #             return "The access_token is valid."
+        #     else:
+        #         return Response({"error": "Unsupported backend."}, status=400)
 
-        # Update params with generated name and username
-        params["name"] = name
-        params["username"] = username
+        #     if not is_valid:
+        #         return Response({"error": "Invalid access token."}, status=400)
 
-        log.info("Updated params: %s", params)
+        # # Generate name and username
+        # if first_name and last_name:
+        #     name = f"{first_name} {last_name}"
+        # elif email:
+        #     local_part = email.split('@')[0]
+        #     domain_part = email.split('@')[1].replace('.', '_')
+        #     local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
+        #     name = local_part.replace('_', ' ')
+        #     username = f"{local_part}_{domain_part}"
+        # else:
+        #     return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
 
-        # Validate request parameters
-        validation_response = validate_user_params(params)
-        if validation_response:
-            return validation_response
+        # # Update params with generated name and username
+        # params["name"] = name
+        # params["username"] = username
 
-        # Create or update user
-        user, user_response = create_or_update_user(params)
-        return user_response
+        # log.info("Updated params: %s", params)
+
+        # # Validate request parameters
+        # validation_response = validate_user_params(params)
+        # if validation_response:
+        #     return validation_response
+
+        # # Create or update user
+        # user, user_response = create_or_update_user(params)
+        # return user_response
 
