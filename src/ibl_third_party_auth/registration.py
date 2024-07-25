@@ -56,33 +56,19 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         try:
             # Decode the JWT header to get the Key ID (kid)
             header = jwt.get_unverified_header(access_token)
-            log.info(f"Header: {header}")
             kid = header['kid']
-            log.info(f"Key ID: {kid}")
 
             # Get the public key from Apple's JWKs
             jwk_key = self.get_apple_jwk(kid)
-            log.info(f"JWK: {jwk_key}")
             public_key = jwk.construct(jwk_key)
-            log.info(f"Public key: {public_key}")
 
             # Verify the JWT signature
             message, encoded_signature = access_token.rsplit('.', 1)
-            log.info(f"Message: {message}")
             decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
             if not public_key.verify(message.encode('utf-8'), decoded_signature):
                 return False
 
             claims = jwt.get_unverified_claims(access_token)
-            log.info(f"Claims: {claims}")
-
-            log.info(f"aud: {claims['aud']}")
-            log.info(f"audience settings: {self.setting('AUDIENCE')}")
-
-            log.info(f"client: {self.setting('CLIENT')}")
-            log.info(f"Expiration time: {claims['exp']}")
-
-
             if isinstance(self.setting('AUDIENCE'), list):
                 if claims['aud'] not in self.setting('AUDIENCE'):
                     return False
@@ -112,12 +98,10 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         """
         self.strategy = load_strategy(request)
         id_token = request.data.get('access_token')
-        log.info(f"id_token: {id_token}" )
         if not id_token:
             return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             decoded_data = self.verify_apple_access_token(id_token)
-            log.info(f"Decoded data: {decoded_data}")
             if not decoded_data:
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
             create_user = self.create_user_account(request)
