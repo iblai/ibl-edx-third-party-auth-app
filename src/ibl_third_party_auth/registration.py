@@ -26,7 +26,7 @@ from rest_framework.views import APIView
 log = logging.getLogger(__name__)
 
 
-class UserManagementView(APIView):
+class IblUserManagementView(APIView):
     """
     User API extension.
     """
