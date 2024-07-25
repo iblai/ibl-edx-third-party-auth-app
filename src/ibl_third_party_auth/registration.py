@@ -27,11 +27,12 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from social_core.backends.oauth import BaseOAuth2
 
 log = logging.getLogger(__name__)
 
 
-class IblUserManagementView(APIView):
+class IblUserManagementView(APIView,BaseOAuth2):
     """
     User API extension.
     """
