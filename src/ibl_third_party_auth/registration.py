@@ -40,6 +40,7 @@ log = logging.getLogger(__name__)
 
 class CustomAccessTokenExchange(DOTAccessTokenExchangeView):
     def create_access_token(self, request, user, scope, client):
+        client = self.oauth2_adapter.get_client(client_id=client)
         return super().create_access_token(request, user, scope, client)
 
 class IblUserManagementView(APIView, IBLAppleIdAuth):
@@ -197,6 +198,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         if user_response:
 
             # Call exchange_access_token
+
             exchange_instance = CustomAccessTokenExchange()
             access_token = exchange_instance.exchange_access_token(request, user, params.get("scope"), params.get("client_id"))
             log.info(f"Access token: {access_token}")
