@@ -16,7 +16,7 @@ from jose.utils import base64url_decode
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from social_core.backends.open_id_connect import OpenIdConnectAuth
+from social_core.backends.google_openidconnect import GoogleOpenIdConnect
 from social_django.utils import load_strategy
 
 from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
@@ -87,7 +87,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             return False
 
     def verify_google_access_token(self, id_token, access_token):
-        opene_id_connect = OpenIdConnectAuth()
+        opene_id_connect = GoogleOpenIdConnect()
         return opene_id_connect.validate_and_return_id_token(id_token, access_token)
 
     def post(self, request, format=None):
