@@ -7,6 +7,7 @@ import time
 import requests
 from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from django.db.models import Q
 from ibl_user_management_api.utils.main import (
@@ -194,18 +195,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
 
         if user_response:
-            # Prepare data for exchange_access_token
-            # exchange_data = {
-            #     "client_id" : params.get("client_id"),
-            #     "asymmetric_jwt" : params.get("asymmetric_jwt"),
-            #     "token_type" : params.get("token_type"),
-            #     "access_token" : params.get("access_token"),
-            #     "scope" : params.get("scope"),
-            #     "email" : params.get("email")
-            # }
 
             # Call exchange_access_token
             exchange_instance = CustomAccessTokenExchange()
-            access_token = exchange_instance.exchange_access_token(request, params.get("username"), params.get("scope"), params.get("client_id"))
+            access_token = exchange_instance.exchange_access_token(request, user, params.get("scope"), params.get("client_id"))
             log.info(f"Access token: {access_token}")
         return user_response
