@@ -55,10 +55,10 @@ class IblUserManagementView(APIView, AppleIdAuth):
         first_name (optional): First name of user
         last_name (optional): Last name of user
         """
+        self.strategy = load_strategy(request)
         log.info("User registration request.........")
         import remote_pdb
         remote_pdb.RemotePdb('0.0.0.0', 4444).set_trace()
-        self.strategy = load_strategy(request)
         id_token = request.data.get('access_token')
         log.info(f"id_token: {id_token}" )
         if not id_token:
