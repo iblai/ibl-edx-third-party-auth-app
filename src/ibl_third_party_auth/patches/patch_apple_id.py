@@ -147,6 +147,9 @@ class IBLAppleIdAuth(AppleIdAuth):
         """
         Return requested Apple public key or all available.
         """
+        log.info("Getting Apple JWK")
+        log.info(f"Apple JWK URL: {self.JWK_URL}")
+        log.info(f"Apple JWK kid: {kid}")
         keys = self.get_json(url=self.JWK_URL).get('keys')
         log.info(f"keys: {keys}")
 
