@@ -30,6 +30,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from social_core.backends.oauth import BaseOAuth2
+from social_django.utils import load_backend, load_strategy
 
 log = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ class IblUserManagementView(APIView, AppleIdAuth):
         last_name (optional): Last name of user
         """
         log.info("User registration request.........")
-
+        self.strategy = load_strategy(request)
         id_token = request.data.get('access_token')
         if not id_token:
             return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
