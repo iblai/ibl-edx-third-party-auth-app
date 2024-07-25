@@ -2,7 +2,10 @@
 User API views
 """
 import logging
+import time
 
+import requests
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
 from ibl_user_management_api.utils.main import (
@@ -15,6 +18,8 @@ from ibl_user_management_api.utils.request import (
     get_user_from_request,
     validate_user_params,
 )
+from jose import jwk, jwt
+from jose.utils import base64url_decode
 from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
 from openedx.core.djangoapps.user_api.errors import UserNotFound
 from openedx.core.lib.api.view_utils import view_auth_classes
@@ -33,44 +38,108 @@ class IblUserManagementView(APIView):
     authentication_classes = []
     permission_classes = []
 
-    # def get(self, request, format=None):
-    #     """
-    #     Get basic user information.
-    #     Modification of openedx.core.djangoapps.user_api.accounts.views.AccountViewSet.retrieve
+    APLLE_JWK_URL = "https://appleid.apple.com/auth/keys"
+    GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
 
-    #     Params:
-    #     username or email or user_id: precedence order [user_id > username > email]
-    #     """
-    #     is_admin_request = (request.user.is_superuser or request.user.is_staff)
+    def get_apple_jwk(self, kid):
+        response = requests.get(self.APLLE_JWK_URL)
+        response.raise_for_status()
+        keys = response.json().get('keys')
 
-    #     user, error_response = get_user_from_request(request, source=self)
-    #     if not user:
-    #         if is_admin_request:
-    #             return error_response
-    #         else:
-    #             return Response(status=404)
+        for key in keys:
+            if key['kid'] == kid:
+                return key
+        raise ValueError("Key ID not found in Apple's JWKs")
 
-    #     # Check for admin user if request user doesn't match
-    #     if not is_admin_request and (user != request.user):
-    #         return Response(status=404)
+    def verify_apple_access_token(self, access_token):
+        try:
+            # Decode the JWT header to get the Key ID (kid)
+            header = jwt.get_unverified_header(access_token)
+            log.info(f"Header: {header}")
+            kid = header['kid']
+            log.info(f"Key ID: {kid}")
 
-    #     username = user.username
-    #     try:
-    #         account_settings = get_account_settings(
-    #             request, [username], view=request.query_params.get('view'))
-    #     except UserNotFound:
-    #         return Response(status=403)
+            # Get the public key from Apple's JWKs
+            jwk_key = self.get_apple_jwk(kid)
+            log.info(f"JWK: {jwk_key}")
+            public_key = jwk.construct(jwk_key)
+            log.info(f"Public key: {public_key}")
 
-    #     response = account_settings[0]
-    #     if response:
-    #         # Add user ID
-    #         response["id"] = user.id
-    #         response["is_superuser"] = user.is_superuser
-    #         response["is_staff"] = user.is_staff
+            # Verify the JWT signature
+            message, encoded_signature = access_token.rsplit('.', 1)
+            log.info(f"Message: {message}")
+            decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
+            log.info(f"Decoded signature: {decoded_signature}")
 
+            if not public_key.verify(message.encode('utf-8'), decoded_signature):
+                return False
 
-    #     return Response(response)
+            # Decode and validate the claims
+            claims = jwt.get_unverified_claims(access_token)
+            log.info(f"Claims: {claims}")
 
+            # Example claim validation (you can add more as needed)
+            if claims['aud'] != self.setting("CLIENT"):
+                return False
+            if claims['exp'] < time.time():
+                return False
+
+            return True
+        except Exception as e:
+            print(f"Token verification failed: {e}")
+            return False
+
+    GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
+
+    def get_google_jwk(self, kid):
+        log.info("Fetching Google JWKs")
+        response = requests.get(self.GOOGLE_JWK_URL)
+        response.raise_for_status()
+        keys = response.json().get('keys')
+        log.info(f"Found {len(keys)} keys in Google's JWKs")
+
+        for key in keys:
+            if key['kid'] == kid:
+                log.info(f"Found matching key for kid: {kid}")
+                return key
+        log.error(f"Key ID {kid} not found in Google's JWKs.....")
+        raise ValueError("Key ID not found in Google's JWKs.....")
+
+    def verify_google_access_token(self, access_token):
+        try:
+            log.info("Decoding JWT header")
+            header = jwt.get_unverified_header(access_token)
+            kid = header['kid']
+            log.info(f"Extracted kid from header: {kid} ")
+
+            log.info("Getting public key from Google's JWKs........")
+            jwk_key = self.get_google_jwk(kid)
+            public_key = jwk.construct(jwk_key)
+
+            log.info("Verifying JWT signature......")
+            message, encoded_signature = access_token.rsplit('.', 1)
+            decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
+
+            if not public_key.verify(message.encode('utf-8'), decoded_signature):
+                log.error("Signature verification failed........")
+                return False
+
+            log.info("Decoding and validating claims.........")
+            claims = jwt.get_unverified_claims(access_token)
+
+            # Example claim validation (you can add more as needed)
+            if claims['aud'] != 'your_client_id':
+                log.error("Invalid audience in claims")
+                return False
+            if claims['exp'] < time.time():
+                log.error("Token has expired")
+                return False
+
+            log.info("Token is valid")
+            return True
+        except Exception as e:
+            log.error(f"Token verification failed: {e}")
+            return False
 
     def post(self, request, format=None):
         """
@@ -93,6 +162,7 @@ class IblUserManagementView(APIView):
         import re
 
         # Extract new parameters
+        backend = params.get("backend")
         client_id = params.get("client_id")
         asymmetric_jwt = params.get("asymmetric_jwt")
         token_type = params.get("token_type")
@@ -101,6 +171,22 @@ class IblUserManagementView(APIView):
         email = params.get("email")
         first_name = params.get("first_name")
         last_name = params.get("last_name")
+
+        # Verify access token if backend is provided
+        if backend:
+            if backend == "apple-id":
+                is_valid = self.verify_apple_access_token(access_token)
+                if is_valid:
+                    return "The access_token is valid."
+            elif backend == "google-oauth2":
+                is_valid = self.verify_google_access_token(access_token)
+                if is_valid:
+                    return "The access_token is valid."
+            else:
+                return Response({"error": "Unsupported backend."}, status=400)
+
+            if not is_valid:
+                return Response({"error": "Invalid access token."}, status=400)
 
         # Generate name and username
         if first_name and last_name:
@@ -118,10 +204,6 @@ class IblUserManagementView(APIView):
         params["name"] = name
         params["username"] = username
 
-        # Update params with generated name and username
-        params["name"] = name
-        params["username"] = username
-
         log.info("Updated params: %s", params)
 
         # Validate request parameters
@@ -132,3 +214,4 @@ class IblUserManagementView(APIView):
         # Create or update user
         user, user_response = create_or_update_user(params)
         return user_response
+
