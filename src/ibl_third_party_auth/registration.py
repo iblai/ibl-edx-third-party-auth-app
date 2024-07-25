@@ -96,6 +96,17 @@ class IblUserManagementView(APIView, AppleIdAuth):
         return user_response
 
     def post(self, request, *args, **kwargs):
+        id_token = request.data.get('access_token')
+        if not id_token:
+            return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            decoded_data = self.decode_id_token(id_token)
+            return Response({'decoded_data': decoded_data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def some_post(self, request, *args, **kwargs):
         """
         Create user with the manage_user command.
 
