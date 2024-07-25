@@ -145,27 +145,13 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             log.info(f"Decoded data: {decoded_data}")
             if not decoded_data:
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
-            user_account_created = self.create_user_account(request)
+            access_token = self.create_user_account(request)
 
-            if user_account_created:
-                # Prepare data for exchange_access_token
-                exchange_data = {
-                    "client_id" : request.data.get("client_id"),
-                    "asymmetric_jwt" : request.data.get("asymmetric_jwt"),
-                    "token_type" : request.data.get("token_type"),
-                    "access_token" : request.data.get("access_token"),
-                    "scope" : request.data.get("scope"),
-                    "email" : request.data.get("email")
-                }
 
-                # Call exchange_access_token
-                exchange_instance = CustomAccessTokenExchange()
-                access_token = exchange_instance.exchange_access_token(exchange_data)
-                log.info(f"Access token: {access_token}")
 
-                return Response({'access_token': access_token}, status=status.HTTP_200_OK)
-            else:
-                return Response({'error': 'User account creation failed'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'access_token': access_token}, status=status.HTTP_200_OK)
+            # else:
+            #     return Response({'error': 'User account creation failed'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -205,4 +191,21 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         # Create or update user
         user, user_response = create_or_update_user(params)
         log.info(f"user: {user} user_response: {user_response}")
+
+
+        if user_response:
+            # Prepare data for exchange_access_token
+            # exchange_data = {
+            #     "client_id" : params.get("client_id"),
+            #     "asymmetric_jwt" : params.get("asymmetric_jwt"),
+            #     "token_type" : params.get("token_type"),
+            #     "access_token" : params.get("access_token"),
+            #     "scope" : params.get("scope"),
+            #     "email" : params.get("email")
+            # }
+
+            # Call exchange_access_token
+            exchange_instance = CustomAccessTokenExchange()
+            access_token = exchange_instance.exchange_access_token(request, params.get("username"), params.get("scope"), params.get("client_id"))
+            log.info(f"Access token: {access_token}")
         return user_response
