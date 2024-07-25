@@ -21,7 +21,7 @@ from ibl_user_management_api.utils.request import (
 )
 from jose import jwk, jwt
 from jose.utils import base64url_decode
-from openedx.core.djangoapps.auth_exchange.views import AccessTokenExchangeBase
+from openedx.core.djangoapps.auth_exchange.views import DOTAccessTokenExchangeView
 from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
 from openedx.core.djangoapps.user_api.errors import UserNotFound
 from openedx.core.lib.api.view_utils import view_auth_classes
@@ -37,9 +37,9 @@ from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
 
 log = logging.getLogger(__name__)
 
-class CustomAccessTokenExchange(AccessTokenExchangeBase):
-    def exchange_access_token(self, request, user, scope, client):
-        return super().exchange_access_token(request, user, scope, client)
+class CustomAccessTokenExchange(DOTAccessTokenExchangeView):
+    def create_access_token(self, request, user, scope, client):
+        return super().create_access_token(request, user, scope, client)
 
 class IblUserManagementView(APIView, IBLAppleIdAuth):
     """
