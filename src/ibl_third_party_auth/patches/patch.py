@@ -18,7 +18,7 @@ def patch():
     # patch_models.patch()
     # patch_logoutview.patch()
 
-    from . import patch_apple_id
-    from . import patch_middleware
+    from . import patch_apple_id, patch_google_openid, patch_middleware
     patch_apple_id.patch()
     patch_middleware.patch()
+    patch_google_openid.patch()
