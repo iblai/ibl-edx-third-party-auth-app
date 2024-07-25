@@ -1,6 +1,9 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 
+log = logging.getLogger(__name__)
 
 class UserUtils():
     def __init__(self):
@@ -11,6 +14,7 @@ class UserUtils():
         Create a new user
         """
         user, created = self.user_model.objects.get_or_create(username=username, email=email, first_name=first_name, last_name=last_name)
+        log.info("User created: %s", user)
         if created:
             return True
         else:
