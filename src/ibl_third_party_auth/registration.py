@@ -33,43 +33,43 @@ class UserManagementView(APIView):
     authentication_classes = []
     permission_classes = []
 
-    # def get(self, request, format=None):
-    #     """
-    #     Get basic user information.
-    #     Modification of openedx.core.djangoapps.user_api.accounts.views.AccountViewSet.retrieve
+    def get(self, request, format=None):
+        """
+        Get basic user information.
+        Modification of openedx.core.djangoapps.user_api.accounts.views.AccountViewSet.retrieve
 
-    #     Params:
-    #     username or email or user_id: precedence order [user_id > username > email]
-    #     """
-    #     is_admin_request = (request.user.is_superuser or request.user.is_staff)
+        Params:
+        username or email or user_id: precedence order [user_id > username > email]
+        """
+        is_admin_request = (request.user.is_superuser or request.user.is_staff)
 
-    #     user, error_response = get_user_from_request(request, source=self)
-    #     if not user:
-    #         if is_admin_request:
-    #             return error_response
-    #         else:
-    #             return Response(status=404)
+        user, error_response = get_user_from_request(request, source=self)
+        if not user:
+            if is_admin_request:
+                return error_response
+            else:
+                return Response(status=404)
 
-    #     # Check for admin user if request user doesn't match
-    #     if not is_admin_request and (user != request.user):
-    #         return Response(status=404)
+        # Check for admin user if request user doesn't match
+        if not is_admin_request and (user != request.user):
+            return Response(status=404)
 
-    #     username = user.username
-    #     try:
-    #         account_settings = get_account_settings(
-    #             request, [username], view=request.query_params.get('view'))
-    #     except UserNotFound:
-    #         return Response(status=403)
+        username = user.username
+        try:
+            account_settings = get_account_settings(
+                request, [username], view=request.query_params.get('view'))
+        except UserNotFound:
+            return Response(status=403)
 
-    #     response = account_settings[0]
-    #     if response:
-    #         # Add user ID
-    #         response["id"] = user.id
-    #         response["is_superuser"] = user.is_superuser
-    #         response["is_staff"] = user.is_staff
+        response = account_settings[0]
+        if response:
+            # Add user ID
+            response["id"] = user.id
+            response["is_superuser"] = user.is_superuser
+            response["is_staff"] = user.is_staff
 
 
-    #     return Response(response)
+        return Response(response)
 
 
     def post(self, request, format=None):
