@@ -5,43 +5,22 @@ import logging
 import time
 
 import requests
-from common.djangoapps.third_party_auth.appleid import AppleIdAuth
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import User
-from django.db.models import Q
 from ibl_user_management_api.utils.main import (
     create_or_update_user,
-    retrieve_user,
-    retrieve_user_from_email,
-    retrieve_user_from_id,
 )
 from ibl_user_management_api.utils.request import (
-    get_user_from_request,
     validate_user_params,
 )
 from jose import jwk, jwt
 from jose.utils import base64url_decode
-from openedx.core.djangoapps.auth_exchange.views import DOTAccessTokenExchangeView
-from openedx.core.djangoapps.user_api.accounts.api import get_account_settings
-from openedx.core.djangoapps.user_api.errors import UserNotFound
-from openedx.core.lib.api.view_utils import view_auth_classes
 from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from social_core.backends.oauth import BaseOAuth2
-from social_django.utils import load_backend, load_strategy
+from social_django.utils import load_strategy
 
 from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
 
 log = logging.getLogger(__name__)
-
-class CustomAccessTokenExchange(DOTAccessTokenExchangeView):
-    def create_access_token(self, request, user, scope, client):
-        client = self.oauth2_adapter.get_client(client_id=client)
-        return super().create_access_token(request, user, scope, client)
 
 class IblUserManagementView(APIView, IBLAppleIdAuth):
     """
@@ -94,11 +73,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             if not public_key.verify(message.encode('utf-8'), decoded_signature):
                 return False
 
-            # Decode and validate the claims
             claims = jwt.get_unverified_claims(access_token)
             log.info(f"Claims: {claims}")
 
-            # Example claim validation (you can add more as needed)
             log.info(f"aud: {claims['aud']}")
             log.info(f"audience settings: {self.setting('AUDIENCE')}")
 
@@ -134,24 +111,18 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         last_name (optional): Last name of user
         """
         self.strategy = load_strategy(request)
-        log.info("User registration request.........")
-        # import remote_pdb
-        # remote_pdb.RemotePdb('0.0.0.0', 4444).set_trace()
         id_token = request.data.get('access_token')
         log.info(f"id_token: {id_token}" )
         if not id_token:
             return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            log.info("Decoding id token.........")
             decoded_data = self.verify_apple_access_token(id_token)
             log.info(f"Decoded data: {decoded_data}")
             if not decoded_data:
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
-            access_token = self.create_user_account(request)
+            create_user = self.create_user_account(request)
 
-            return Response({'access_token': access_token}, status=status.HTTP_200_OK)
-            # else:
-            #     return Response({'error': 'User account creation failed'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'user': create_user}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -165,39 +136,24 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         first_name = params.get("first_name")
         last_name = params.get("last_name")
 
-        # Generate name and username
         if first_name and last_name:
             name = f"{first_name} {last_name}"
         elif email:
             local_part = email.split('@')[0]
             domain_part = email.split('@')[1].replace('.', '_')
-            local_part = re.sub(r'\W+', '_', local_part)  # Replace all non-alphanumeric characters with underscores
+            local_part = re.sub(r'\W+', '_', local_part)
             name = local_part.replace('_', ' ')
             username = f"{local_part}_{domain_part}"
         else:
             return Response({"error": "Email is required if first name and last name are not provided."}, status=400)
 
-        # Update params with generated name and username
         params["name"] = name
         params["username"] = username
 
-        log.info("Updated params: %s", params)
-
-        # Validate request parameters
         validation_response = validate_user_params(params)
         if validation_response:
             return validation_response
 
-        # Create or update user
         user, user_response = create_or_update_user(params)
-        log.info(f"user: {user} user_response: {user_response}")
 
-
-        if user_response:
-
-            # Call exchange_access_token
-
-            exchange_instance = CustomAccessTokenExchange()
-            access_token = exchange_instance.exchange_access_token(request, user, params.get("scope"), params.get("client_id"))
-            log.info(f"Access token: {access_token}")
-        return access_token
+        return user_response
