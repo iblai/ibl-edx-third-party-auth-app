@@ -122,7 +122,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 return Response({'error': 'access_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
             create_user = self.create_user_account(request)
 
-            return Response({'user': create_user}, status=status.HTTP_200_OK)
+            return create_user
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
