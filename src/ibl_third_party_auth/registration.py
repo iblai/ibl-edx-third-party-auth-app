@@ -49,6 +49,7 @@ class IblUserManagementView(APIView,BaseOAuth2):
 
         for key in keys:
             if key['kid'] == kid:
+                log.info(f"Found matching key for kid: {kid}")
                 return key
         raise ValueError("Key ID not found in Apple's JWKs")
 
@@ -78,6 +79,13 @@ class IblUserManagementView(APIView,BaseOAuth2):
             log.info(f"Claims: {claims}")
 
             # Example claim validation (you can add more as needed)
+            log.info(f"Audience: {claims['aud']}")
+            log.info(f"Expiration: {claims['exp']}")
+            log.info(f"Subject: {claims['sub']}")
+            log.info(f"Issuer: {claims['iss']}")
+            log.info(f"Email: {claims.get('email')}")
+            log.info(f"client_id: {self.setting('CLIENT')}")
+
             if claims['aud'] != self.setting('CLIENT'):
                 return False
             if claims['exp'] < time.time():
