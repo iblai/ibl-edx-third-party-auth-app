@@ -69,8 +69,6 @@ class IblUserManagementView(APIView):
             message, encoded_signature = access_token.rsplit('.', 1)
             log.info(f"Message: {message}")
             decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
-            log.info(f"Decoded signature: {decoded_signature}")
-
             if not public_key.verify(message.encode('utf-8'), decoded_signature):
                 return False
 
@@ -79,7 +77,7 @@ class IblUserManagementView(APIView):
             log.info(f"Claims: {claims}")
 
             # Example claim validation (you can add more as needed)
-            if claims['aud'] != self.setting("CLIENT"):
+            if claims['aud'] != settings("CLIENT"):
                 return False
             if claims['exp'] < time.time():
                 return False
@@ -88,8 +86,6 @@ class IblUserManagementView(APIView):
         except Exception as e:
             print(f"Token verification failed: {e}")
             return False
-
-    GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
 
     def get_google_jwk(self, kid):
         log.info("Fetching Google JWKs")
