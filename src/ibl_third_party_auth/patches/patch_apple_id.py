@@ -146,6 +146,8 @@ class IBLAppleIdAuth(AppleIdAuth):
     def get_user_details(self, response):
         name = response.get("name") or {}
         email = response.get("email", "")
+        if not email:
+            log.error("No email supplied w/ appleid login: %s", response)
         fullname, first_name, last_name = self.get_user_names(
             fullname=str(email).split("@")[0],
             first_name=name.get("firstName", ""),
