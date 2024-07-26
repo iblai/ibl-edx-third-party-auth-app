@@ -63,7 +63,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
         log.info(f"Verifying Google JWT token: {id_token}")
         try:
             # Decode the JWT header to get the Key ID (kid)
-            header = jwt.get_unverified_header(access_token)
+            header = jwt.get_unverified_header(id_token)
             log.info(f"Header: {header}")
             kid = header['kid']
             log.info(f"Kid: {kid}")
