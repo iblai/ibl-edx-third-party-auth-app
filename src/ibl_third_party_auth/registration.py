@@ -233,11 +233,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             )
 
     def create_user_account(self, request, data={}, backend="apple-id"):
+        import re
         if backend == "apple-id":
             params = request.data
-
-            import re
-
             email = params.get("email")
             first_name = params.get("first_name")
             last_name = params.get("last_name")
