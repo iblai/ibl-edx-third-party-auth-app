@@ -59,8 +59,8 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 return key
         raise ValueError("Key ID not found in Google's JWKs")
 
-    def verify_google_jwt_token(self, access_token):
-        log.info(f"Verifying Google JWT token: {access_token}")
+    def verify_google_jwt_token(self, id_token, access_token):
+        log.info(f"Verifying Google JWT token: {id_token}")
         try:
             # Decode the JWT header to get the Key ID (kid)
             header = jwt.get_unverified_header(access_token)
@@ -79,7 +79,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             # Verify the JWT signature and decode the token
             try:
                 log.info(f"Decoding token with public key: {public_key}")
-                claims = jwt.decode(access_token, public_key, algorithms=['RS256'], audience=self.GOOGLE_AUDIENCE)
+                claims = jwt.decode(token=id_token, key=public_key, access_token=access_token,  algorithms=['RS256'], audience=self.GOOGLE_AUDIENCE, issuer='https://accounts.google.com')
                 log.info(f"Claims: {claims}")
             except Exception as e:
                 log.error(f"Error decoding token: {e}")
@@ -169,11 +169,11 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 return Response({'error': "Account could not be created"}, status=status.HTTP_400_BAD_REQUEST)
         elif backend == "google-oauth2":
             id_token = request.data.get('id_token')
-            # access_token = request.data.get('access_token')
+            access_token = request.data.get('access_token')
             if not id_token:
                 return Response({'error': 'Missing id_token parameter'}, status=status.HTTP_400_BAD_REQUEST)
             try:
-                decoded_data = self.verify_google_jwt_token(id_token)
+                decoded_data = self.verify_google_jwt_token(id_token, access_token)
                 log.info(f"Decoded data: {decoded_data}")
                 if not decoded_data:
                     return Response({'error': 'id_token could not be verified'}, status=status.HTTP_400_BAD_REQUEST)
