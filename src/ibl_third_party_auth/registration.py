@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from social_django.utils import load_strategy
 
 from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth
+from ibl_third_party_auth.utils.provider_utils import IBLProviderConfig
 from ibl_third_party_auth.utils.user import UserUtils
 
 log = logging.getLogger(__name__)
@@ -49,10 +50,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
     GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
-    GOOGLE_AUDIENCE = getattr(settings, "SOCIAL_AUTH_GOOGLE_CLIENT_ID", None)
+    # GOOGLE_AUDIENCE = getattr(settings, "SOCIAL_AUTH_GOOGLE_CLIENT_ID", None)
 
     def get_google_jwk(self, kid):
-        log.info(f"Getting Google JWK for kid: {kid}")
         response = requests.get(self.GOOGLE_JWK_URL)
         response.raise_for_status()
         keys = response.json().get("keys")
@@ -62,36 +62,29 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 return key
         raise ValueError("Key ID not found in Google's JWKs")
 
-    def verify_google_jwt_token(self, id_token, access_token):
-        log.info(f"Verifying Google JWT token: {id_token}")
+    def verify_google_jwt_token(self, id_token, access_token, backend="google-oauth2"):
         try:
             # Decode the JWT header to get the Key ID (kid)
             header = jwt.get_unverified_header(id_token)
-            log.info(f"Header: {header}")
             kid = header["kid"]
-            log.info(f"Kid: {kid}")
 
             # Get the public key from Google's JWKs
             jwk_key = self.get_google_jwk(kid)
-            log.info(f"JWK Key: {jwk}")
             public_key = RSAAlgorithm.from_jwk(jwk_key)
-            log.info(f"Public Key: {public_key}")
-
-            log.info(f"Google Audience: {self.GOOGLE_AUDIENCE}")
 
             # Verify the JWT signature and decode the token
+            provider = IBLProviderConfig()
+            audience = provider.get_audience(backend)
             try:
-                log.info(f"Decoding token with public key: {public_key}")
                 claims = jwt.decode(
                     token=id_token,
                     key=public_key,
                     access_token=access_token,
                     algorithms=["RS256"],
-                    audience=self.GOOGLE_AUDIENCE,
+                    audience=audience,
                     issuer="https://accounts.google.com",
                     options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False},
                 )
-                log.info(f"Claims: {claims}")
             except Exception as e:
                 log.error(f"Error decoding token: {e}")
                 return False
@@ -102,7 +95,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
             return claims
         except Exception as e:
-            log.info(f"Token verification failed: {e}")
+            log.error(f"Token verification failed: {e}")
             return False
 
     def get_apple_jwk(self, kid):
@@ -202,8 +195,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                decoded_data = self.verify_google_jwt_token(id_token, access_token)
-                log.info(f"Decoded data: {decoded_data}")
+                decoded_data = self.verify_google_jwt_token(id_token, access_token, backend)
                 if not decoded_data:
                     return Response(
                         {"error": "id_token could not be verified"},
@@ -252,18 +244,16 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             else:
                 return False
         elif backend == "google-oauth2":
-            log.info(f"Data: {data}")
             email = data.get("email")
             first_name = data.get("given_name")
             last_name = data.get("family_name")
-            log.info(f"Email: {email}")
 
             if email:
                 local_part = email.split("@")[0]
                 domain_part = email.split("@")[1].replace(".", "_")
                 local_part = re.sub(r"\W+", "_", local_part)
                 username = f"{local_part}_{domain_part}"
-                log.info(f"Username: {username}")
+
                 if not first_name:
                     first_name = local_part
                 if not last_name:
