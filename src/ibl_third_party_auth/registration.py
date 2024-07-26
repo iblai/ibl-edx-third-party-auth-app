@@ -75,6 +75,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             # Verify the JWT signature and decode the token
             provider = IBLProviderConfig()
             audience = provider.get_audience(backend)
+            log.info(f"Audience: {audience}")
             try:
                 claims = jwt.decode(
                     token=id_token,

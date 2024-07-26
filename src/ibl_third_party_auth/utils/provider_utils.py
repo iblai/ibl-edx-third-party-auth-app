@@ -12,6 +12,6 @@ class IBLProviderConfig():
         Get the audience for the given provider.
         """
         provider = OAuth2ProviderConfig.objects.filter(slug=backend).latest('change_date')
-        provider_config = json.loads(provider)
+        provider_config = json.loads(provider.other_settings)
         audience = provider_config.get('AUDIENCE')
         return audience
