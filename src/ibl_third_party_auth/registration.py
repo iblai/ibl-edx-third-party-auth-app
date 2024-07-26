@@ -74,9 +74,16 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             public_key = RSAAlgorithm.from_jwk(jwk_key)
             log.info(f"Public Key: {public_key}")
 
+            log.info(f"Google Audience: {self.GOOGLE_AUDIENCE}")
+
             # Verify the JWT signature and decode the token
-            claims = jwt.decode(access_token, public_key, algorithms=['RS256'], audience=self.GOOGLE_AUDIENCE)
-            log.info(f"Claims: {claims}")
+            try:
+                log.info(f"Decoding token with public key: {public_key}")
+                claims = jwt.decode(access_token, public_key, algorithms=['RS256'], audience=self.GOOGLE_AUDIENCE)
+                log.info(f"Claims: {claims}")
+            except Exception as e:
+                log.error(f"Error decoding token: {e}")
+                return False
 
             # Check the expiration
             if claims['exp'] < time.time():
