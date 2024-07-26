@@ -1,7 +1,20 @@
 # ChangeLog
+
+## 2.0.5
+- New google JWT validation flow.
+- Add support for multiple audiences.
+- Add error logging.
+- Remove openidconnect override.
+- New provider util to get audiences from provider settings
+
+## 2.0.4
+- New Apple JWT validation flow.
+- Add error logging
+- New user util to create user and userprofile
+
 ## 2.0.3
 - Update to the process_exception logging
-  
+
 ## 2.0.1
 - Add override for apple-id SSO flow
 

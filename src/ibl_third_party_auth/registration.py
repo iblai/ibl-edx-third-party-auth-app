@@ -6,13 +6,6 @@ import logging
 import time
 
 import requests
-from django.conf import settings
-from ibl_user_management_api.utils.main import (
-    create_or_update_user,
-)
-from ibl_user_management_api.utils.request import (
-    validate_user_params,
-)
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 from jwt.algorithms import RSAAlgorithm
@@ -50,7 +43,6 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
     GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
-    # GOOGLE_AUDIENCE = getattr(settings, "SOCIAL_AUTH_GOOGLE_CLIENT_ID", None)
 
     def get_google_jwk(self, kid):
         response = requests.get(self.GOOGLE_JWK_URL)
