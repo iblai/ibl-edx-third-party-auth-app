@@ -254,15 +254,18 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             else:
                 return False
         elif backend == "google-oauth2":
+            log.info(f"Data: {data}")
             email = data.get("email")
             first_name = data.get("given_name")
             last_name = data.get("family_name")
+            log.info(f"Email: {email}")
 
             if email:
                 local_part = email.split("@")[0]
                 domain_part = email.split("@")[1].replace(".", "_")
                 local_part = re.sub(r"\W+", "_", local_part)
                 username = f"{local_part}_{domain_part}"
+                log.info(f"Username: {username}")
                 if not first_name:
                     first_name = local_part
                 if not last_name:
