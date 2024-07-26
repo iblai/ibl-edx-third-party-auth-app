@@ -48,7 +48,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
     GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs"
     GOOGLE_AUDIENCE = getattr(settings, 'SOCIAL_AUTH_GOOGLE_CLIENT_ID', None)
 
-    def get_google_jwk(self, awlf, kid):
+    def get_google_jwk(self, kid):
         log.info(f"Getting Google JWK for kid: {kid}")
         response = requests.get(self.GOOGLE_JWK_URL)
         response.raise_for_status()
