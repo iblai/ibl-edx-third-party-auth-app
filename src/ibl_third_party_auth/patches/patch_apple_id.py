@@ -147,11 +147,7 @@ class IBLAppleIdAuth(AppleIdAuth):
         """
         Return requested Apple public key or all available.
         """
-        log.info("Getting Apple JWK")
-        log.info(f"Apple JWK URL: {self.JWK_URL}")
-        log.info(f"Apple JWK kid: {kid}")
         keys = self.get_json(url=self.JWK_URL).get('keys')
-        log.info(f"keys: {keys}")
 
         if not isinstance(keys, list) or not keys:
             raise AuthFailed(self, 'Invalid jwk response')
@@ -172,7 +168,6 @@ class IBLAppleIdAuth(AppleIdAuth):
         try:
             kid = jwt.get_unverified_header(id_token).get('kid')
             public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
-            log.info(f"public_key: {public_key}")
             decoded = jwt.decode(
                 id_token,
                 key=public_key,
