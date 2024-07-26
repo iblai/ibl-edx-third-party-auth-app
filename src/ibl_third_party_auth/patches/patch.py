@@ -11,14 +11,7 @@ def patch():
     - strategy.py - DONE
     - All tests
     """
-    # to be depricated if not being used by any cient.
-    # from . import patch_logoutview, patch_models, patch_provider, patch_strategy, patch_apple_id
-    # patch_strategy.patch()
-    # patch_provider.patch()
-    # patch_models.patch()
-    # patch_logoutview.patch()
 
-    from . import patch_apple_id, patch_google_openid, patch_middleware
+    from . import patch_apple_id, patch_middleware
     patch_apple_id.patch()
     patch_middleware.patch()
-    patch_google_openid.patch()

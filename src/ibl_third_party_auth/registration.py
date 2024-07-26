@@ -87,6 +87,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
             # Check the expiration
             if claims["exp"] < time.time():
+                log.error("Error: Token has expired")
                 return False
 
             # Verify the JWT signature and decode the token
@@ -94,6 +95,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             audience = provider.get_audience(backend)
 
             if claims["aud"] not in audience:
+                log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {audience}")
                 return False
 
             return claims
@@ -125,21 +127,25 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             message, encoded_signature = access_token.rsplit(".", 1)
             decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
             if not public_key.verify(message.encode("utf-8"), decoded_signature):
+                log.error("Error: Signature verification failed")
                 return False
 
             claims = jwt.get_unverified_claims(access_token)
             if isinstance(self.setting("AUDIENCE"), list):
                 if claims["aud"] not in self.setting("AUDIENCE"):
+                    log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {self.setting('AUDIENCE')}")
                     return False
             else:
                 if claims["aud"] != self.setting("AUDIENCE"):
+                    log.error(f"Error: Provided audience: {claims['aud']} is not the valid audience: {self.setting('AUDIENCE')}")
                     return False
             if claims["exp"] < time.time():
+                log.error("Error: Token has expired")
                 return False
 
             return True
         except Exception as e:
-            print(f"Token verification failed: {e}")
+            log.error(f"Token verification failed: {e}")
             return False
 
     def post(self, request, format=None):
@@ -245,6 +251,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 if not last_name:
                     last_name = local_part
             else:
+                log.error("Error: Email not found in request")
                 return False
         elif backend == "google-oauth2":
             email = data.get("email")
@@ -262,7 +269,11 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 if not last_name:
                     last_name = local_part
             else:
+                log.error("Error: Email not found in token")
                 return False
+        else:
+            log.error("Error: Invalid backend")
+            return False
 
         user_utils = UserUtils()
         user_response = user_utils.create_user(username, email, first_name, last_name)
