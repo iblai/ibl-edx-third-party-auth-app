@@ -100,7 +100,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             if claims["exp"] < time.time():
                 return False
 
-            return True
+            return claims
         except Exception as e:
             log.info(f"Token verification failed: {e}")
             return False
@@ -209,7 +209,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                         {"error": "id_token could not be verified"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                create_user = self.create_user_account(request)
+                create_user = self.create_user_account(request, decoded_data)
 
                 if create_user:
                     return Response(
@@ -232,26 +232,43 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                 {"error": "Invalid backend"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-    def create_user_account(self, request):
-        params = request.data
+    def create_user_account(self, request, data={}, backend="apple-id"):
+        if backend == "apple-id":
+            params = request.data
 
-        import re
+            import re
 
-        email = params.get("email")
-        first_name = params.get("first_name")
-        last_name = params.get("last_name")
+            email = params.get("email")
+            first_name = params.get("first_name")
+            last_name = params.get("last_name")
 
-        if email:
-            local_part = email.split("@")[0]
-            domain_part = email.split("@")[1].replace(".", "_")
-            local_part = re.sub(r"\W+", "_", local_part)
-            username = f"{local_part}_{domain_part}"
-            if not first_name:
-                first_name = local_part
-            if not last_name:
-                last_name = local_part
-        else:
-            return False
+            if email:
+                local_part = email.split("@")[0]
+                domain_part = email.split("@")[1].replace(".", "_")
+                local_part = re.sub(r"\W+", "_", local_part)
+                username = f"{local_part}_{domain_part}"
+                if not first_name:
+                    first_name = local_part
+                if not last_name:
+                    last_name = local_part
+            else:
+                return False
+        elif backend == "google-oauth2":
+            email = data.get("email")
+            first_name = data.get("given_name")
+            last_name = data.get("family_name")
+
+            if email:
+                local_part = email.split("@")[0]
+                domain_part = email.split("@")[1].replace(".", "_")
+                local_part = re.sub(r"\W+", "_", local_part)
+                username = f"{local_part}_{domain_part}"
+                if not first_name:
+                    first_name = local_part
+                if not last_name:
+                    last_name = local_part
+            else:
+                return False
 
         user_utils = UserUtils()
         user_response = user_utils.create_user(username, email, first_name, last_name)
