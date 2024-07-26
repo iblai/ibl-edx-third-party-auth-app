@@ -89,7 +89,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     algorithms=["RS256"],
                     audience=self.GOOGLE_AUDIENCE,
                     issuer="https://accounts.google.com",
-                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False, "verify_aud": False},
+                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False},
                 )
                 log.info(f"Claims: {claims}")
             except Exception as e:
