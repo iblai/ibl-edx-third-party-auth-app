@@ -26,4 +26,5 @@ class UserUtils():
             profile.save()
             return True
         else:
+            log.error("User already exists")
             return False
