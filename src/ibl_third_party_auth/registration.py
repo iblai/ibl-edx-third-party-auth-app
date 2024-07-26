@@ -72,19 +72,14 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             jwk_key = self.get_google_jwk(kid)
             public_key = RSAAlgorithm.from_jwk(jwk_key)
 
-            # Verify the JWT signature and decode the token
-            provider = IBLProviderConfig()
-            audience = provider.get_audience(backend)
-            log.info(f"Audience: {audience}")
             try:
                 claims = jwt.decode(
                     token=id_token,
                     key=public_key,
                     access_token=access_token,
                     algorithms=["RS256"],
-                    audience=audience,
                     issuer="https://accounts.google.com",
-                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False},
+                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False, "verify_aud": False},
                 )
             except Exception as e:
                 log.error(f"Error decoding token: {e}")
@@ -92,6 +87,13 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
             # Check the expiration
             if claims["exp"] < time.time():
+                return False
+
+            # Verify the JWT signature and decode the token
+            provider = IBLProviderConfig()
+            audience = provider.get_audience(backend)
+
+            if claims["aud"] not in audience:
                 return False
 
             return claims
