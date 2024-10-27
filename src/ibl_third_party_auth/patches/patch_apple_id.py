@@ -381,7 +381,22 @@ class IBLAppleIdAuth(AppleIdAuth):
 
             # Generate new client secret for each request
             client_secret = self.generate_client_secret()
-            kwargs.update({"client_secret": client_secret})
+
+            # Add client_secret to the data payload
+            data = kwargs.get("data", {})
+            if isinstance(data, str):
+                # If data is a string, parse it
+                from urllib.parse import parse_qs
+
+                data = parse_qs(data)
+                # Convert lists to single values
+                data = {
+                    k: v[0] if isinstance(v, list) and len(v) == 1 else v
+                    for k, v in data.items()
+                }
+
+            data["client_secret"] = client_secret
+            kwargs["data"] = data
 
             log.debug(f"Making request to {self.ACCESS_TOKEN_URL}")
             log.debug(f"Request kwargs after update: {kwargs}")
