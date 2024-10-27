@@ -1,13 +1,22 @@
 # ChangeLog
 
 ## 2.0.5
+- Enhance Apple ID authentication process:
+  - Implement Redis-based state management using Open edX's cache configuration
+  - Add more detailed logging for debugging authentication issues
+  - Improve error handling in client secret generation and token decoding
+  - Update tests to cover new Redis-based state management and error scenarios
+  - Clean up logging to avoid exposing sensitive data
+  - Fix client secret handling in token requests
+  - Add state validation bypass option for debugging
+
+## 2.0.4
+- Add testing for Apple ID authentication
 - New google JWT validation flow.
 - Add support for multiple audiences.
 - Add error logging.
 - Remove openidconnect override.
 - New provider util to get audiences from provider settings
-
-## 2.0.4
 - New Apple JWT validation flow.
 - Add error logging
 - New user util to create user and userprofile

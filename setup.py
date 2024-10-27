@@ -22,29 +22,33 @@ def package_data(pkg, roots):
 
 
 setup(
+<<<<<<< HEAD
+    name="ibl-third-party-auth",
+    version="2.0.5",
+=======
     name='ibl-third-party-auth',
     version='2.0.5',
+>>>>>>> master
     install_requires=[
         "ddt",
         "social-auth-app-django",
         "httpretty",
         "freezegun",
         "testfixtures",
-        "python3-saml"
+        "python3-saml",
     ],
-    description='EdX Third Parth Auth package with IBL specific modifications',
-    license='UNKNOWN',       # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
+    description="EdX Third Parth Auth package with IBL specific modifications",
+    license="UNKNOWN",  # TODO: choose a license: 'AGPL v3' and 'Apache 2.0' are popular.
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     entry_points={
-        'lms.djangoapp': [
-            'ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig',
+        "lms.djangoapp": [
+            "ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig",
         ],
-        'cms.djangoapp': [
-            'ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig',
+        "cms.djangoapp": [
+            "ibl_third_party_auth = ibl_third_party_auth.apps:IBLThirdPartyAuthConfig",
         ],
-
     },
     package_data=package_data("ibl_third_party_auth", ["api", "patches", "settings"]),
 )
