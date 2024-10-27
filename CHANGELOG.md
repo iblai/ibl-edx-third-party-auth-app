@@ -1,10 +1,13 @@
 # ChangeLog
 ## 2.0.5 (Unreleased)
 - Enhance Apple ID authentication process:
-  - Implement Redis-based state management for improved security and consistency
+  - Implement Redis-based state management using Open edX's cache configuration
   - Add more detailed logging for debugging authentication issues
   - Improve error handling in client secret generation and token decoding
   - Update tests to cover new Redis-based state management and error scenarios
+  - Clean up logging to avoid exposing sensitive data
+  - Fix client secret handling in token requests
+  - Add state validation bypass option for debugging
 
 ## 2.0.4
 - Add testing for Apple ID authentication

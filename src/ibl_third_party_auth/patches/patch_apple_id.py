@@ -211,9 +211,7 @@ class IBLAppleIdAuth(AppleIdAuth):
         return self.setting("SECRET")
 
     def generate_client_secret(self):
-        """
-        Generate a client secret for Apple ID authentication.
-        """
+        """Generate a client secret for Apple ID authentication."""
         now = int(time.time())
         client_id = self.setting("CLIENT")
         team_id = self.setting("TEAM")
@@ -224,9 +222,8 @@ class IBLAppleIdAuth(AppleIdAuth):
         )
         private_key = self.get_private_key()
 
-        log.info(
-            f"Generating client secret with: client_id={client_id}, team_id={team_id}, key_id={key_id}"
-        )
+        log.info("Generating client secret for Apple ID authentication")
+        # Removed logging of sensitive data (client_id, team_id, key_id)
 
         headers = {"kid": key_id}
         payload = {
@@ -237,9 +234,6 @@ class IBLAppleIdAuth(AppleIdAuth):
             "sub": client_id,
         }
 
-        log.debug(f"JWT payload: {payload}")
-        log.debug(f"JWT headers: {headers}")
-
         try:
             token = jwt.encode(
                 payload, key=private_key, algorithm="ES256", headers=headers
@@ -247,7 +241,7 @@ class IBLAppleIdAuth(AppleIdAuth):
             log.info("Client secret generated successfully")
             return token
         except Exception as e:
-            log.error(f"Error generating client secret: {str(e)}")
+            log.error("Failed to generate client secret")
             raise
 
     def get_apple_jwk(self, kid=None):
@@ -289,17 +283,25 @@ class IBLAppleIdAuth(AppleIdAuth):
             raise AuthFailed(self, "Token validation failed")
 
     def get_user_details(self, response):
+        """Get user details from the response."""
         name = response.get("name") or {}
         email = response.get("email", "")
         if not email:
-            log.error("No email supplied w/ appleid login: %s", response)
+            log.error("No email provided in Apple ID response")
+
+        # Log successful user detail retrieval without exposing data
+        log.info("Retrieved user details from Apple ID response")
+        if email:
+            log.info("Email address present in response")
+
+        # Rest of the method remains the same
         fullname, first_name, last_name = self.get_user_names(
             fullname=str(email).split("@")[0],
             first_name=name.get("firstName", ""),
             last_name=name.get("lastName", ""),
         )
         apple_id = response.get(self.ID_KEY, "")
-        # prevent updating User with empty strings
+
         user_details = {
             "fullname": str(email).split("@")[0],
             "first_name": first_name or str(email).split("@")[0],
@@ -320,19 +322,15 @@ class IBLAppleIdAuth(AppleIdAuth):
             received_state = self.get_request_state()
             session_key = self.strategy.session.session_key
 
-            log.info(f"Received state: {received_state}")
-            log.info(f"Session key: {session_key}")
+            # Only log partial state for debugging (first 8 chars)
+            state_preview = received_state[:8] if received_state else None
+            log.info(f"Validating state starting with: {state_preview}...")
 
-            # Try getting state from both Redis and session
             redis_client = get_redis_client()
             redis_key = f"apple_auth_state:{session_key}"
             stored_redis_state = redis_client.get(redis_key)
             stored_session_state = self.strategy.session.get("apple_auth_state")
 
-            log.info(f"State from Redis: {stored_redis_state}")
-            log.info(f"State from session: {stored_session_state}")
-
-            # Check both storage locations
             if stored_redis_state and stored_redis_state == received_state:
                 log.info("State validated from Redis")
                 redis_client.delete(redis_key)
@@ -343,24 +341,20 @@ class IBLAppleIdAuth(AppleIdAuth):
                 del self.strategy.session["apple_auth_state"]
                 return received_state
 
-            # If state is missing from both locations, check if we need to bypass validation
             if not stored_redis_state and not stored_session_state:
-                log.warning("No stored state found in either Redis or session")
+                log.warning("No stored state found")
                 if (
                     hasattr(settings, "SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION")
                     and settings.SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION
                 ):
-                    log.warning("Skipping state validation as per settings")
+                    log.warning("State validation bypassed per settings")
                     return received_state
 
             log.error("State validation failed")
-            log.error(f"Received state: {received_state}")
-            log.error(f"Redis state: {stored_redis_state}")
-            log.error(f"Session state: {stored_session_state}")
             raise AuthStateMissing(self, "state")
 
         except Exception as e:
-            log.error(f"State validation error: {str(e)}", exc_info=True)
+            log.error(f"State validation error: {type(e).__name__}")
             raise
 
     @classmethod
@@ -375,9 +369,7 @@ class IBLAppleIdAuth(AppleIdAuth):
     def request_access_token(self, *args, **kwargs):
         """Request the access token from Apple."""
         try:
-            log.info("IBLAppleIdAuth.request_access_token called")
-            log.debug(f"Access token request args: {args}")
-            log.debug(f"Access token request kwargs: {kwargs}")
+            log.info("Starting Apple ID access token request")
 
             # Generate new client secret for each request
             client_secret = self.generate_client_secret()
@@ -385,11 +377,9 @@ class IBLAppleIdAuth(AppleIdAuth):
             # Add client_secret to the data payload
             data = kwargs.get("data", {})
             if isinstance(data, str):
-                # If data is a string, parse it
                 from urllib.parse import parse_qs
 
                 data = parse_qs(data)
-                # Convert lists to single values
                 data = {
                     k: v[0] if isinstance(v, list) and len(v) == 1 else v
                     for k, v in data.items()
@@ -398,20 +388,24 @@ class IBLAppleIdAuth(AppleIdAuth):
             data["client_secret"] = client_secret
             kwargs["data"] = data
 
-            log.debug(f"Making request to {self.ACCESS_TOKEN_URL}")
-            log.debug(f"Request kwargs after update: {kwargs}")
+            log.info(f"Making request to {self.ACCESS_TOKEN_URL}")
+            # Removed logging of request details containing sensitive data
 
             response = super().request_access_token(*args, **kwargs)
             log.info("Access token request successful")
             return response
         except Exception as e:
-            log.error(f"Access token request failed: {str(e)}")
+            log.error("Access token request failed")
             if hasattr(e, "response"):
                 log.error(f"Response status: {e.response.status_code}")
-                log.error(f"Response content: {e.response.content}")
-                log.error(f"Request headers: {e.response.request.headers}")
-                log.error(f"Request body: {e.response.request.body}")
-            raise
+                # Only log error message, not full response content
+                if hasattr(e.response, "json"):
+                    try:
+                        error_data = e.response.json()
+                        log.error(f"Error type: {error_data.get('error')}")
+                    except:
+                        pass
+        raise
 
     def get_json(self, *args, **kwargs):
         """Override get_json to add logging."""
