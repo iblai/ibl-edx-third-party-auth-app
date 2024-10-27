@@ -125,6 +125,10 @@ class IBLAppleIdAuth(AppleIdAuth):
         return self.setting("SECRET")
 
     def generate_client_secret(self):
+        """
+        Generate a client secret for Apple ID authentication.
+        """
+        log.info("Generating client secret")
         now = int(time.time())
         client_id = self.setting("CLIENT")
         team_id = self.setting("TEAM")
@@ -135,7 +139,7 @@ class IBLAppleIdAuth(AppleIdAuth):
         )
         private_key = self.get_private_key()
 
-        log.debug(
+        log.info(
             f"Generating client secret with: client_id={client_id}, team_id={team_id}, key_id={key_id}"
         )
 
@@ -152,7 +156,7 @@ class IBLAppleIdAuth(AppleIdAuth):
             token = jwt.encode(
                 payload, key=private_key, algorithm="ES256", headers=headers
             )
-            log.debug("Client secret generated successfully")
+            log.info("Client secret generated successfully")
             return token
         except Exception as e:
             log.error(f"Error generating client secret: {str(e)}")
@@ -182,7 +186,7 @@ class IBLAppleIdAuth(AppleIdAuth):
 
         try:
             kid = jwt.get_unverified_header(id_token).get("kid")
-            log.debug(f"Decoding id_token with kid: {kid}")
+            log.info(f"Decoding id_token with kid: {kid}")
             public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
             decoded = jwt.decode(
                 id_token,
@@ -190,7 +194,7 @@ class IBLAppleIdAuth(AppleIdAuth):
                 audience=self.get_audience(),
                 algorithms=["RS256"],
             )
-            log.debug("id_token decoded successfully")
+            log.info("id_token decoded successfully")
             return decoded
         except PyJWTError as e:
             log.error(f"Token validation failed: {str(e)}")
