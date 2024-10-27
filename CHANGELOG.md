@@ -12,6 +12,14 @@
 
 ## 2.0.4
 - Add testing for Apple ID authentication
+- New google JWT validation flow.
+- Add support for multiple audiences.
+- Add error logging.
+- Remove openidconnect override.
+- New provider util to get audiences from provider settings
+- New Apple JWT validation flow.
+- Add error logging
+- New user util to create user and userprofile
 
 ## 2.0.3
 - Update to the process_exception logging
