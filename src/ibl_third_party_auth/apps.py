@@ -51,9 +51,12 @@ class IBLThirdPartyAuthConfig(AppConfig):
         log.info("IBLThirdPartyAuthConfig.ready() called")
 
         try:
+            # Import all relevant modules
             from common.djangoapps.third_party_auth import appleid
+            from social_core.backends import apple
 
             log.info(f"Current AppleIdAuth class: {appleid.AppleIdAuth}")
+            log.info(f"Current social_core AppleIdAuth class: {apple.AppleIdAuth}")
 
             from .patches.patch_apple_id import patch as patch_apple_id
             from .patches.patch_middleware import patch as patch_middleware
@@ -62,6 +65,16 @@ class IBLThirdPartyAuthConfig(AppConfig):
             patch_apple_id()
             patch_middleware()
 
-            log.info(f"After patching, AppleIdAuth class: {appleid.AppleIdAuth}")
+            # Verify patches
+            log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
+            log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
+
+            # Force reload of the backend
+            from django.conf import settings
+            from social_django.utils import load_backend
+
+            strategy = load_strategy()
+            load_backend(strategy, "apple-id", settings.SOCIAL_AUTH_APPLE_ID_KEY)
+
         except Exception as e:
             log.error(f"Error during patching: {str(e)}", exc_info=True)

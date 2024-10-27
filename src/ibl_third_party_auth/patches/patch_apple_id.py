@@ -300,30 +300,78 @@ class IBLAppleIdAuth(AppleIdAuth):
         log.info(f"Current AppleIdAuth class: {current_class}")
         return current_class == cls
 
+    def request_access_token(self, *args, **kwargs):
+        """Request the access token from Apple."""
+        try:
+            log.info("IBLAppleIdAuth.request_access_token called")
+            log.debug(f"Access token request args: {args}")
+            log.debug(f"Access token request kwargs: {kwargs}")
+
+            # Generate new client secret for each request
+            client_secret = self.generate_client_secret()
+            kwargs.update({"client_secret": client_secret})
+
+            log.debug(f"Making request to {self.ACCESS_TOKEN_URL}")
+            log.debug(f"Request kwargs after update: {kwargs}")
+
+            response = super().request_access_token(*args, **kwargs)
+            log.info("Access token request successful")
+            return response
+        except Exception as e:
+            log.error(f"Access token request failed: {str(e)}")
+            if hasattr(e, "response"):
+                log.error(f"Response status: {e.response.status_code}")
+                log.error(f"Response content: {e.response.content}")
+                log.error(f"Request headers: {e.response.request.headers}")
+                log.error(f"Request body: {e.response.request.body}")
+            raise
+
+    def get_json(self, *args, **kwargs):
+        """Override get_json to add logging."""
+        try:
+            log.info(
+                f"IBLAppleIdAuth.get_json called with url: {kwargs.get('url', args[0] if args else 'No URL')}"
+            )
+            log.debug(f"get_json args: {args}")
+            log.debug(f"get_json kwargs: {kwargs}")
+            return super().get_json(*args, **kwargs)
+        except Exception as e:
+            log.error(f"get_json failed: {str(e)}")
+            raise
+
 
 def patch():
     """Patch the AppleIdAuth class with our implementation."""
     log.info("Applying IBLAppleIdAuth patch...")
     try:
+        # Patch all possible import locations
         from common.djangoapps.third_party_auth import appleid
+        from social_core.backends import apple
 
-        current_class = appleid.AppleIdAuth
-        log.info(f"Current AppleIdAuth class: {current_class}")
+        log.info(f"Current AppleIdAuth class: {appleid.AppleIdAuth}")
+        log.info(f"Current social_core AppleIdAuth class: {apple.AppleIdAuth}")
 
-        if current_class == IBLAppleIdAuth:
-            log.info("IBLAppleIdAuth already patched")
-            return
-
+        # Patch both locations
         appleid.AppleIdAuth = IBLAppleIdAuth
-        log.info(f"Successfully patched AppleIdAuth with IBLAppleIdAuth")
+        apple.AppleIdAuth = IBLAppleIdAuth
 
-        # Verify the patch
-        if appleid.AppleIdAuth == IBLAppleIdAuth:
-            log.info("Patch verification successful")
-        else:
-            log.error(
-                f"Patch verification failed. Current class: {appleid.AppleIdAuth}"
-            )
+        # Verify patches
+        log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
+        log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
+
+        # Add a hook to the request_access_token method to ensure our patch is used
+        from social_core.backends.oauth import BaseOAuth2
+
+        original_request_access_token = BaseOAuth2.request_access_token
+
+        def patched_request_access_token(self, *args, **kwargs):
+            log.info(f"request_access_token called on {self.__class__}")
+            if isinstance(self, IBLAppleIdAuth):
+                log.info("Using IBLAppleIdAuth implementation")
+            return original_request_access_token(self, *args, **kwargs)
+
+        BaseOAuth2.request_access_token = patched_request_access_token
+
     except Exception as e:
         log.error(f"Error during patching: {str(e)}", exc_info=True)
         raise
