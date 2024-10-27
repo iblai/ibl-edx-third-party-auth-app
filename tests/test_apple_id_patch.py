@@ -139,3 +139,24 @@ def test_decode_id_token_failure():
             ):
                 with pytest.raises(AuthFailed, match="Token validation failed"):
                     ibl_auth.decode_id_token("dummy_token")
+
+
+def test_patch_is_applied():
+    """Test that the patch is correctly applied to the AppleIdAuth class."""
+    from common.djangoapps.third_party_auth import appleid
+    from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth, patch
+
+    # Store original class
+    original_class = appleid.AppleIdAuth
+
+    try:
+        # Apply patch
+        patch()
+
+        # Verify patch was applied
+        assert appleid.AppleIdAuth == IBLAppleIdAuth
+        assert appleid.AppleIdAuth.name == "apple-id"
+
+    finally:
+        # Restore original class
+        appleid.AppleIdAuth = original_class

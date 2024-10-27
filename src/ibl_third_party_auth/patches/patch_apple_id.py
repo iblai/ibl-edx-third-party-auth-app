@@ -105,6 +105,27 @@ class IBLAppleIdAuth(AppleIdAuth):
     TOKEN_AUDIENCE = "https://appleid.apple.com"
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
+    def __init__(self, *args, **kwargs):
+        log.info("Initializing IBLAppleIdAuth...")
+        super().__init__(*args, **kwargs)
+
+    def auth_complete(self, *args, **kwargs):
+        """Complete the auth process."""
+        log.info("IBLAppleIdAuth.auth_complete called")
+        try:
+            log.debug(f"Auth complete args: {args}")
+            log.debug(f"Auth complete kwargs: {kwargs}")
+
+            response = super().auth_complete(*args, **kwargs)
+            log.info("Auth complete process successful")
+            return response
+        except Exception as e:
+            log.error(f"Auth complete process failed: {str(e)}")
+            if hasattr(e, "response"):
+                log.error(f"Response status: {e.response.status_code}")
+                log.error(f"Response content: {e.response.content}")
+            raise
+
     def auth_params(self, *args, **kwargs):
         """
         Apple requires to set `response_mode` to `form_post` if `scope`
@@ -270,6 +291,39 @@ class IBLAppleIdAuth(AppleIdAuth):
             log.error(f"State validation error: {str(e)}")
             raise
 
+    @classmethod
+    def verify_patch(cls):
+        """Verify that this class is being used as the AppleIdAuth."""
+        from common.djangoapps.third_party_auth import appleid
+
+        current_class = appleid.AppleIdAuth
+        log.info(f"Current AppleIdAuth class: {current_class}")
+        return current_class == cls
+
 
 def patch():
-    appleid.AppleIdAuth = IBLAppleIdAuth
+    """Patch the AppleIdAuth class with our implementation."""
+    log.info("Applying IBLAppleIdAuth patch...")
+    try:
+        from common.djangoapps.third_party_auth import appleid
+
+        current_class = appleid.AppleIdAuth
+        log.info(f"Current AppleIdAuth class: {current_class}")
+
+        if current_class == IBLAppleIdAuth:
+            log.info("IBLAppleIdAuth already patched")
+            return
+
+        appleid.AppleIdAuth = IBLAppleIdAuth
+        log.info(f"Successfully patched AppleIdAuth with IBLAppleIdAuth")
+
+        # Verify the patch
+        if appleid.AppleIdAuth == IBLAppleIdAuth:
+            log.info("Patch verification successful")
+        else:
+            log.error(
+                f"Patch verification failed. Current class: {appleid.AppleIdAuth}"
+            )
+    except Exception as e:
+        log.error(f"Error during patching: {str(e)}", exc_info=True)
+        raise
