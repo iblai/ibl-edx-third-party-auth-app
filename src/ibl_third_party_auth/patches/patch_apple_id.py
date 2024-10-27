@@ -128,7 +128,6 @@ class IBLAppleIdAuth(AppleIdAuth):
         """
         Generate a client secret for Apple ID authentication.
         """
-        log.info("Generating client secret")
         now = int(time.time())
         client_id = self.setting("CLIENT")
         team_id = self.setting("TEAM")
@@ -151,6 +150,9 @@ class IBLAppleIdAuth(AppleIdAuth):
             "aud": self.TOKEN_AUDIENCE,
             "sub": client_id,
         }
+
+        log.debug(f"JWT payload: {payload}")
+        log.debug(f"JWT headers: {headers}")
 
         try:
             token = jwt.encode(
@@ -239,20 +241,34 @@ class IBLAppleIdAuth(AppleIdAuth):
         return state
 
     def validate_state(self):
-        state = self.get_request_state()
-        session_key = self.strategy.session.session_key
+        """Validate the state parameter."""
+        try:
+            log.info("Validating state parameter")
+            state = self.get_request_state()
+            session_key = self.strategy.session.session_key
 
-        redis_client = redis.Redis.from_url(settings.REDIS_URL)
-        redis_key = f"apple_auth_state:{session_key}"
-        stored_state = redis_client.get(redis_key)
+            log.debug(f"State from request: {state}")
+            log.debug(f"Session key: {session_key}")
 
-        if not stored_state or stored_state.decode() != state:
-            raise AuthStateMissing(self, "state")
+            redis_client = redis.Redis.from_url(settings.REDIS_URL)
+            redis_key = f"apple_auth_state:{session_key}"
+            stored_state = redis_client.get(redis_key)
 
-        # Remove the used state
-        redis_client.delete(redis_key)
+            log.debug(f"Stored state from Redis: {stored_state}")
 
-        return state
+            if not stored_state or stored_state.decode() != state:
+                log.error("State validation failed")
+                log.error(f"Stored state: {stored_state}")
+                log.error(f"Received state: {state}")
+                raise AuthStateMissing(self, "state")
+
+            # Remove the used state
+            redis_client.delete(redis_key)
+            log.info("State validation successful")
+            return state
+        except Exception as e:
+            log.error(f"State validation error: {str(e)}")
+            raise
 
 
 def patch():
