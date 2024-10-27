@@ -92,16 +92,18 @@ def get_redis_client():
     """Get Redis client using Open edX settings."""
     from django.conf import settings
 
-    # Get Redis configuration from Open edX cache settings
     cache_config = settings.CACHES.get("default", {})
     if cache_config.get("BACKEND") == "django_redis.cache.RedisCache":
         location = cache_config.get("LOCATION")
-        log.debug(f"Using Redis location from cache settings: {location}")
+        log.info(f"Using Redis location from cache settings: {location}")
         try:
-            return redis.Redis.from_url(location)
+            return redis.Redis.from_url(
+                location,
+                decode_responses=True,  # Automatically decode responses
+                socket_timeout=5,  # Add timeout
+            )
         except Exception as e:
             log.error(f"Failed to connect to Redis using location {location}: {str(e)}")
-            # If connection fails with URL, try parsing and connecting with explicit parameters
             try:
                 from urllib.parse import urlparse
 
@@ -111,6 +113,8 @@ def get_redis_client():
                     port=parsed.port,
                     db=int(parsed.path.lstrip("/") or "0"),
                     password=parsed.password,
+                    socket_timeout=5,
+                    decode_responses=True,
                 )
             except Exception as e:
                 log.error(
@@ -118,13 +122,7 @@ def get_redis_client():
                 )
                 raise
 
-    # Fallback configuration if cache settings are not available
-    log.warning("Redis cache configuration not found, using fallback configuration")
-    return redis.Redis(
-        host="redis",  # Default to the known host
-        port=6479,  # Default to the known port
-        db=1,  # Default to the known database
-    )
+    raise Exception("Redis cache configuration not found in settings")
 
 
 class IBLAppleIdAuth(AppleIdAuth):
@@ -288,46 +286,79 @@ class IBLAppleIdAuth(AppleIdAuth):
         return user_details
 
     def get_and_store_state(self, request):
-        state = str(uuid.uuid4())  # Generate a unique state
+        """Generate and store state parameter."""
+        log.info("Generating and storing state parameter")
+
+        state = str(uuid.uuid4())
         session_key = request.session.session_key
         if not session_key:
             request.session.create()
             session_key = request.session.session_key
 
-        redis_client = get_redis_client()
-        redis_key = f"apple_auth_state:{session_key}"
-        redis_client.setex(redis_key, 300, state)  # Store for 5 minutes
+        log.info(f"Generated state: {state}")
+        log.info(f"Session key: {session_key}")
 
-        return state
+        try:
+            redis_client = get_redis_client()
+            redis_key = f"apple_auth_state:{session_key}"
+
+            # Store in both Redis and session
+            redis_client.setex(redis_key, 300, state)
+            request.session["apple_auth_state"] = state
+
+            # Verify storage
+            stored_redis_state = redis_client.get(redis_key)
+            stored_session_state = request.session.get("apple_auth_state")
+
+            log.info(f"State stored in Redis: {stored_redis_state}")
+            log.info(f"State stored in session: {stored_session_state}")
+
+            return state
+
+        except Exception as e:
+            log.error(f"Error storing state: {str(e)}", exc_info=True)
+            # Fallback to session-only storage
+            request.session["apple_auth_state"] = state
+            return state
 
     def validate_state(self):
         """Validate the state parameter."""
         try:
             log.info("Validating state parameter")
-            state = self.get_request_state()
+            received_state = self.get_request_state()
             session_key = self.strategy.session.session_key
 
-            log.debug(f"State from request: {state}")
-            log.debug(f"Session key: {session_key}")
+            log.info(f"Received state: {received_state}")
+            log.info(f"Session key: {session_key}")
 
+            # Try getting state from both Redis and session
             redis_client = get_redis_client()
             redis_key = f"apple_auth_state:{session_key}"
-            stored_state = redis_client.get(redis_key)
+            stored_redis_state = redis_client.get(redis_key)
+            stored_session_state = self.strategy.session.get("apple_auth_state")
 
-            log.debug(f"Stored state from Redis: {stored_state}")
+            log.info(f"State from Redis: {stored_redis_state}")
+            log.info(f"State from session: {stored_session_state}")
 
-            if not stored_state or stored_state.decode() != state:
-                log.error("State validation failed")
-                log.error(f"Stored state: {stored_state}")
-                log.error(f"Received state: {state}")
-                raise AuthStateMissing(self, "state")
+            # Check both storage locations
+            if stored_redis_state and stored_redis_state == received_state:
+                log.info("State validated from Redis")
+                redis_client.delete(redis_key)
+                return received_state
 
-            # Remove the used state
-            redis_client.delete(redis_key)
-            log.info("State validation successful")
-            return state
+            if stored_session_state and stored_session_state == received_state:
+                log.info("State validated from session")
+                del self.strategy.session["apple_auth_state"]
+                return received_state
+
+            log.error("State validation failed")
+            log.error(f"Received state: {received_state}")
+            log.error(f"Redis state: {stored_redis_state}")
+            log.error(f"Session state: {stored_session_state}")
+            raise AuthStateMissing(self, "state")
+
         except Exception as e:
-            log.error(f"State validation error: {str(e)}")
+            log.error(f"State validation error: {str(e)}", exc_info=True)
             raise
 
     @classmethod
