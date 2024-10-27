@@ -92,31 +92,39 @@ def get_redis_client():
     """Get Redis client using Open edX settings."""
     from django.conf import settings
 
-    # Get Redis configuration from Open edX settings
-    if hasattr(settings, "CACHES") and "default" in settings.CACHES:
-        config = settings.CACHES["default"]
-        if config["BACKEND"] == "django_redis.cache.RedisCache":
-            location = config["LOCATION"]
-            options = config.get("OPTIONS", {})
+    # Get Redis configuration from Open edX cache settings
+    cache_config = settings.CACHES.get("default", {})
+    if cache_config.get("BACKEND") == "django_redis.cache.RedisCache":
+        location = cache_config.get("LOCATION")
+        log.debug(f"Using Redis location from cache settings: {location}")
+        try:
+            return redis.Redis.from_url(location)
+        except Exception as e:
+            log.error(f"Failed to connect to Redis using location {location}: {str(e)}")
+            # If connection fails with URL, try parsing and connecting with explicit parameters
+            try:
+                from urllib.parse import urlparse
 
-            # Extract Redis URL from location
-            # Typically format: redis://[:password@]host:port/db
-            redis_url = location
-
-            # Add any additional options from Django settings
-            client_class = options.get("CLIENT_CLASS")
-            if client_class == "django_redis.client.DefaultClient":
-                connection_pool = options.get("CONNECTION_POOL_KWARGS", {})
-                socket_timeout = options.get("SOCKET_TIMEOUT")
-
-                log.debug(f"Connecting to Redis at {redis_url}")
-                return redis.Redis.from_url(
-                    redis_url, socket_timeout=socket_timeout, **connection_pool
+                parsed = urlparse(location)
+                return redis.Redis(
+                    host=parsed.hostname,
+                    port=parsed.port,
+                    db=int(parsed.path.lstrip("/") or "0"),
+                    password=parsed.password,
                 )
+            except Exception as e:
+                log.error(
+                    f"Failed to connect to Redis with explicit parameters: {str(e)}"
+                )
+                raise
 
-    # Fallback to default Redis configuration
-    log.warning("Using default Redis configuration")
-    return redis.Redis(host="redis", port=6379, db=0)
+    # Fallback configuration if cache settings are not available
+    log.warning("Redis cache configuration not found, using fallback configuration")
+    return redis.Redis(
+        host="redis",  # Default to the known host
+        port=6479,  # Default to the known port
+        db=1,  # Default to the known database
+    )
 
 
 class IBLAppleIdAuth(AppleIdAuth):

@@ -201,3 +201,16 @@ def test_get_redis_client_fallback(mock_settings):
                 db=1,
             )
             assert client == mock_redis.return_value
+
+
+def test_get_redis_client_url_fallback(mock_settings):
+    """Test Redis client falls back to explicit parameters if URL connection fails."""
+    from ibl_third_party_auth.patches.patch_apple_id import get_redis_client
+
+    with mock_patch(
+        "redis.Redis.from_url", side_effect=Exception("URL connection failed")
+    ):
+        with mock_patch("redis.Redis") as mock_redis:
+            client = get_redis_client()
+            mock_redis.assert_called_once_with(host="10.0.0.95", port=6479, db=1)
+            assert client == mock_redis.return_value
