@@ -1,5 +1,6 @@
 # ChangeLog
-## 2.0.5 (Unreleased)
+
+## 2.0.5
 - Enhance Apple ID authentication process:
   - Implement Redis-based state management using Open edX's cache configuration
   - Add more detailed logging for debugging authentication issues
