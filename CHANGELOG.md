@@ -1,4 +1,6 @@
 # ChangeLog
+## 2.0.6
+- Fix for Apple ID authentication
 
 ## 2.0.5
 - Enhance Apple ID authentication process:
