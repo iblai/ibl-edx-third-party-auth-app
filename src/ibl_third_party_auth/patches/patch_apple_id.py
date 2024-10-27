@@ -74,14 +74,16 @@ Settings:
 import json
 import logging
 import time
+import uuid
 
 import jwt
+import redis
 from common.djangoapps.third_party_auth import appleid
 from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
-from social_core.exceptions import AuthFailed
+from social_core.exceptions import AuthFailed, AuthStateMissing
 
 log = logging.getLogger(__name__)
 
@@ -132,8 +134,12 @@ class IBLAppleIdAuth(AppleIdAuth):
             else ""
         )
         private_key = self.get_private_key()
-        headers = {"kid": key_id}
 
+        log.debug(
+            f"Generating client secret with: client_id={client_id}, team_id={team_id}, key_id={key_id}"
+        )
+
+        headers = {"kid": key_id}
         payload = {
             "iss": team_id,
             "iat": now,
@@ -141,19 +147,28 @@ class IBLAppleIdAuth(AppleIdAuth):
             "aud": self.TOKEN_AUDIENCE,
             "sub": client_id,
         }
-        return jwt.encode(payload, key=private_key, algorithm="ES256", headers=headers)
+
+        try:
+            token = jwt.encode(
+                payload, key=private_key, algorithm="ES256", headers=headers
+            )
+            log.debug("Client secret generated successfully")
+            return token
+        except Exception as e:
+            log.error(f"Error generating client secret: {str(e)}")
+            raise
 
     def get_apple_jwk(self, kid=None):
         """
         Return requested Apple public key or all available.
         """
-        keys = self.get_json(url=self.JWK_URL).get('keys')
+        keys = self.get_json(url=self.JWK_URL).get("keys")
 
         if not isinstance(keys, list) or not keys:
-            raise AuthFailed(self, 'Invalid jwk response')
+            raise AuthFailed(self, "Invalid jwk response")
 
         if kid:
-            return json.dumps([key for key in keys if key['kid'] == kid][0])
+            return json.dumps([key for key in keys if key["kid"] == kid][0])
         else:
             return (json.dumps(key) for key in keys)
 
@@ -163,21 +178,23 @@ class IBLAppleIdAuth(AppleIdAuth):
         user data.
         """
         if not id_token:
-            raise AuthFailed(self, 'Missing id_token parameter')
+            raise AuthFailed(self, "Missing id_token parameter")
 
         try:
-            kid = jwt.get_unverified_header(id_token).get('kid')
+            kid = jwt.get_unverified_header(id_token).get("kid")
+            log.debug(f"Decoding id_token with kid: {kid}")
             public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
             decoded = jwt.decode(
                 id_token,
                 key=public_key,
                 audience=self.get_audience(),
-                algorithms=['RS256'],
+                algorithms=["RS256"],
             )
-        except PyJWTError:
-            raise AuthFailed(self, 'Token validation failed')
-
-        return decoded
+            log.debug("id_token decoded successfully")
+            return decoded
+        except PyJWTError as e:
+            log.error(f"Token validation failed: {str(e)}")
+            raise AuthFailed(self, "Token validation failed")
 
     def get_user_details(self, response):
         name = response.get("name") or {}
@@ -203,6 +220,35 @@ class IBLAppleIdAuth(AppleIdAuth):
             user_details["username"] = apple_id
 
         return user_details
+
+    def get_and_store_state(self, request):
+        state = str(uuid.uuid4())  # Generate a unique state
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_key = f"apple_auth_state:{session_key}"
+        redis_client.setex(redis_key, 300, state)  # Store for 5 minutes
+
+        return state
+
+    def validate_state(self):
+        state = self.get_request_state()
+        session_key = self.strategy.session.session_key
+
+        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_key = f"apple_auth_state:{session_key}"
+        stored_state = redis_client.get(redis_key)
+
+        if not stored_state or stored_state.decode() != state:
+            raise AuthStateMissing(self, "state")
+
+        # Remove the used state
+        redis_client.delete(redis_key)
+
+        return state
 
 
 def patch():

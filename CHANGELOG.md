@@ -1,7 +1,17 @@
 # ChangeLog
+## 2.0.5 (Unreleased)
+- Enhance Apple ID authentication process:
+  - Implement Redis-based state management for improved security and consistency
+  - Add more detailed logging for debugging authentication issues
+  - Improve error handling in client secret generation and token decoding
+  - Update tests to cover new Redis-based state management and error scenarios
+
+## 2.0.4
+- Add testing for Apple ID authentication
+
 ## 2.0.3
 - Update to the process_exception logging
-  
+
 ## 2.0.1
 - Add override for apple-id SSO flow
 
