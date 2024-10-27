@@ -221,3 +221,28 @@ def test_get_redis_client_no_config(mock_settings):
         Exception, match="Redis cache configuration not found in settings"
     ):
         get_redis_client()
+
+
+def test_request_access_token():
+    """Test request_access_token properly includes client_secret in data."""
+    ibl_auth = IBLAppleIdAuth(strategy=None)
+
+    with mock_patch.object(
+        ibl_auth, "generate_client_secret", return_value="test_secret"
+    ):
+        with mock_patch.object(
+            ibl_auth,
+            "request_access_token",
+            return_value={"access_token": "test_token"},
+        ):
+            # Test with dict data
+            kwargs = {"data": {"code": "test_code"}}
+            response = ibl_auth.request_access_token(**kwargs)
+            assert kwargs["data"]["client_secret"] == "test_secret"
+
+            # Test with string data
+            kwargs = {"data": "code=test_code"}
+            response = ibl_auth.request_access_token(**kwargs)
+            assert isinstance(kwargs["data"], dict)
+            assert kwargs["data"]["client_secret"] == "test_secret"
+            assert kwargs["data"]["code"] == "test_code"
