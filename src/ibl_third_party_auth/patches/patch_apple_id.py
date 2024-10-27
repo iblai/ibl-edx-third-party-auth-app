@@ -163,16 +163,44 @@ class IBLAppleIdAuth(AppleIdAuth):
                 log.error(f"Response content: {e.response.content}")
             raise
 
-    def auth_params(self, *args, **kwargs):
+    def auth_params(self, state=None, *args, **kwargs):
         """
         Apple requires to set `response_mode` to `form_post` if `scope`
         parameter is passed.
         """
-        params = super().auth_params(*args, **kwargs)
+        log.info("Generating auth params")
+        params = super().auth_params(state=state, *args, **kwargs)
+
         if self.RESPONSE_MODE:
             params["response_mode"] = self.RESPONSE_MODE
         elif self.get_scope():
             params["response_mode"] = "form_post"
+
+        # Store state in both Redis and session
+        if state:
+            log.info(f"Storing state in auth_params: {state}")
+            try:
+                redis_client = get_redis_client()
+                session_key = self.strategy.session.session_key
+                if not session_key:
+                    self.strategy.session.create()
+                    session_key = self.strategy.session.session_key
+
+                redis_key = f"apple_auth_state:{session_key}"
+                redis_client.setex(redis_key, 300, state)
+                self.strategy.session["apple_auth_state"] = state
+
+                # Verify storage
+                stored_redis_state = redis_client.get(redis_key)
+                stored_session_state = self.strategy.session.get("apple_auth_state")
+                log.info(f"State stored in Redis: {stored_redis_state}")
+                log.info(f"State stored in session: {stored_session_state}")
+            except Exception as e:
+                log.error(
+                    f"Error storing state in auth_params: {str(e)}", exc_info=True
+                )
+
+        log.debug(f"Auth params: {params}")
         return params
 
     def get_private_key(self):
@@ -285,42 +313,6 @@ class IBLAppleIdAuth(AppleIdAuth):
 
         return user_details
 
-    def get_and_store_state(self, request):
-        """Generate and store state parameter."""
-        log.info("Generating and storing state parameter")
-
-        state = str(uuid.uuid4())
-        session_key = request.session.session_key
-        if not session_key:
-            request.session.create()
-            session_key = request.session.session_key
-
-        log.info(f"Generated state: {state}")
-        log.info(f"Session key: {session_key}")
-
-        try:
-            redis_client = get_redis_client()
-            redis_key = f"apple_auth_state:{session_key}"
-
-            # Store in both Redis and session
-            redis_client.setex(redis_key, 300, state)
-            request.session["apple_auth_state"] = state
-
-            # Verify storage
-            stored_redis_state = redis_client.get(redis_key)
-            stored_session_state = request.session.get("apple_auth_state")
-
-            log.info(f"State stored in Redis: {stored_redis_state}")
-            log.info(f"State stored in session: {stored_session_state}")
-
-            return state
-
-        except Exception as e:
-            log.error(f"Error storing state: {str(e)}", exc_info=True)
-            # Fallback to session-only storage
-            request.session["apple_auth_state"] = state
-            return state
-
     def validate_state(self):
         """Validate the state parameter."""
         try:
@@ -350,6 +342,16 @@ class IBLAppleIdAuth(AppleIdAuth):
                 log.info("State validated from session")
                 del self.strategy.session["apple_auth_state"]
                 return received_state
+
+            # If state is missing from both locations, check if we need to bypass validation
+            if not stored_redis_state and not stored_session_state:
+                log.warning("No stored state found in either Redis or session")
+                if (
+                    hasattr(settings, "SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION")
+                    and settings.SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION
+                ):
+                    log.warning("Skipping state validation as per settings")
+                    return received_state
 
             log.error("State validation failed")
             log.error(f"Received state: {received_state}")
