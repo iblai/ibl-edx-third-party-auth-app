@@ -69,12 +69,8 @@ class IBLThirdPartyAuthConfig(AppConfig):
             log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
             log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
 
-            # Force reload of the backend
-            from django.conf import settings
-            from social_django.utils import load_backend
-
-            strategy = load_strategy()
-            load_backend(strategy, "apple-id", settings.SOCIAL_AUTH_APPLE_ID_KEY)
+            # We don't need to force reload the backend during app initialization
+            # The backend will be loaded correctly when needed during requests
 
         except Exception as e:
             log.error(f"Error during patching: {str(e)}", exc_info=True)
