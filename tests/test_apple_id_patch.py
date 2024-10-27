@@ -15,6 +15,22 @@ def mock_redis():
         yield mock_redis
 
 
+@pytest.fixture
+def mock_settings(monkeypatch):
+    """Mock Django settings with Redis configuration."""
+    mock_settings = MagicMock()
+    mock_settings.CACHES = {
+        "default": {
+            "KEY_PREFIX": "default",
+            "VERSION": "1",
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://@10.0.0.95:6479/1",
+        }
+    }
+    monkeypatch.setattr("django.conf.settings", mock_settings)
+    return mock_settings
+
+
 def test_patch():
     with mock_patch.object(third_party_auth.appleid, "AppleIdAuth", create=True):
         patch()
@@ -160,3 +176,28 @@ def test_patch_is_applied():
     finally:
         # Restore original class
         appleid.AppleIdAuth = original_class
+
+
+def test_get_redis_client(mock_settings):
+    """Test Redis client creation with Open edX settings."""
+    from ibl_third_party_auth.patches.patch_apple_id import get_redis_client
+
+    with mock_patch("redis.Redis.from_url") as mock_redis:
+        client = get_redis_client()
+        mock_redis.assert_called_once_with("redis://@10.0.0.95:6479/1")
+        assert client == mock_redis.return_value
+
+
+def test_get_redis_client_fallback(mock_settings):
+    """Test Redis client creation falls back to direct connection."""
+    from ibl_third_party_auth.patches.patch_apple_id import get_redis_client
+
+    with mock_patch("redis.Redis.from_url", side_effect=Exception("Connection failed")):
+        with mock_patch("redis.Redis") as mock_redis:
+            client = get_redis_client()
+            mock_redis.assert_called_once_with(
+                host="10.0.0.95",
+                port=6479,
+                db=1,
+            )
+            assert client == mock_redis.return_value

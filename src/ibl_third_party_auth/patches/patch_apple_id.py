@@ -88,6 +88,37 @@ from social_core.exceptions import AuthFailed, AuthStateMissing
 log = logging.getLogger(__name__)
 
 
+def get_redis_client():
+    """Get Redis client using Open edX settings."""
+    from django.conf import settings
+
+    # Get Redis configuration from Open edX settings
+    if hasattr(settings, "CACHES") and "default" in settings.CACHES:
+        config = settings.CACHES["default"]
+        if config["BACKEND"] == "django_redis.cache.RedisCache":
+            location = config["LOCATION"]
+            options = config.get("OPTIONS", {})
+
+            # Extract Redis URL from location
+            # Typically format: redis://[:password@]host:port/db
+            redis_url = location
+
+            # Add any additional options from Django settings
+            client_class = options.get("CLIENT_CLASS")
+            if client_class == "django_redis.client.DefaultClient":
+                connection_pool = options.get("CONNECTION_POOL_KWARGS", {})
+                socket_timeout = options.get("SOCKET_TIMEOUT")
+
+                log.debug(f"Connecting to Redis at {redis_url}")
+                return redis.Redis.from_url(
+                    redis_url, socket_timeout=socket_timeout, **connection_pool
+                )
+
+    # Fallback to default Redis configuration
+    log.warning("Using default Redis configuration")
+    return redis.Redis(host="redis", port=6379, db=0)
+
+
 class IBLAppleIdAuth(AppleIdAuth):
     name = "apple-id"
 
@@ -255,7 +286,7 @@ class IBLAppleIdAuth(AppleIdAuth):
             request.session.create()
             session_key = request.session.session_key
 
-        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_client = get_redis_client()
         redis_key = f"apple_auth_state:{session_key}"
         redis_client.setex(redis_key, 300, state)  # Store for 5 minutes
 
@@ -271,7 +302,7 @@ class IBLAppleIdAuth(AppleIdAuth):
             log.debug(f"State from request: {state}")
             log.debug(f"Session key: {session_key}")
 
-            redis_client = redis.Redis.from_url(settings.REDIS_URL)
+            redis_client = get_redis_client()
             redis_key = f"apple_auth_state:{session_key}"
             stored_state = redis_client.get(redis_key)
 
