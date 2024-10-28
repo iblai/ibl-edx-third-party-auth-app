@@ -156,7 +156,9 @@ class IBLAppleIdAuth(AppleIdAuth):
 
         # Store state in both cache and session
         if state:
-            log.info(f"Storing state in auth_params: {state}")
+            # Only show first 8 chars of state
+            state_preview = f"{state[:8]}..." if state else None
+            log.info(f"Storing state in auth_params: {state_preview}")
             try:
                 session_key = self.strategy.session.session_key
                 if not session_key:
@@ -167,11 +169,11 @@ class IBLAppleIdAuth(AppleIdAuth):
                 cache.set(cache_key, state, timeout=300)
                 self.strategy.session["apple_auth_state"] = state
 
-                # Verify storage
+                # Verify storage (using masked state value)
                 stored_cache_state = cache.get(cache_key)
                 stored_session_state = self.strategy.session.get("apple_auth_state")
-                log.info(f"State stored in cache: {stored_cache_state}")
-                log.info(f"State stored in session: {stored_session_state}")
+                log.info(f"State stored in cache: {state_preview}")
+                log.info(f"State stored in session: {state_preview}")
             except Exception as e:
                 log.error(
                     f"Error storing state in auth_params: {str(e)}", exc_info=True
