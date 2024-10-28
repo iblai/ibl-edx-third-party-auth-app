@@ -4,7 +4,11 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 from common.djangoapps import third_party_auth
-from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth, patch
+from ibl_third_party_auth.patches.patch_apple_id import (
+    IBLAppleIdAuth,
+    patch,
+    verify_redis_cache,
+)
 from jwt.exceptions import PyJWTError
 from social_core.exceptions import AuthFailed, AuthStateMissing
 
@@ -29,6 +33,14 @@ def mock_settings(monkeypatch):
     }
     monkeypatch.setattr("django.conf.settings", mock_settings)
     return mock_settings
+
+
+@pytest.fixture
+def mock_cache(monkeypatch):
+    """Mock Django's cache."""
+    mock_cache = MagicMock()
+    monkeypatch.setattr("django.core.cache.cache", mock_cache)
+    return mock_cache
 
 
 def test_patch():
@@ -77,15 +89,16 @@ def test_get_user_details():
             assert user_details["username"] == "john.doe@example.com"
 
 
-def test_get_and_store_state(mock_redis):
+def test_get_and_store_state(mock_cache):
+    """Test state storage using Django cache."""
     ibl_auth = IBLAppleIdAuth(strategy=None)
     request = MagicMock()
     request.session.session_key = "test_session_key"
 
     with mock_patch("uuid.uuid4", return_value="dummy_state"):
         state = ibl_auth.get_and_store_state(request)
-        mock_redis.return_value.setex.assert_called_once_with(
-            "apple_auth_state:test_session_key", 300, "dummy_state"
+        mock_cache.set.assert_called_once_with(
+            "apple_auth_state:test_session_key", "dummy_state", timeout=300
         )
         assert state == "dummy_state"
 
@@ -246,3 +259,38 @@ def test_request_access_token():
             assert isinstance(kwargs["data"], dict)
             assert kwargs["data"]["client_secret"] == "test_secret"
             assert kwargs["data"]["code"] == "test_code"
+
+
+def test_verify_redis_cache(mock_settings):
+    """Test Redis cache verification."""
+    from ibl_third_party_auth.patches.patch_apple_id import verify_redis_cache
+
+    # Test with Redis backend
+    assert verify_redis_cache() is True
+
+    # Test with different backend
+    mock_settings.CACHES["default"]["BACKEND"] = (
+        "django.core.cache.backends.locmem.LocMemCache"
+    )
+    assert verify_redis_cache() is False
+
+    # Test with no cache config
+    mock_settings.CACHES = {}
+    assert verify_redis_cache() is False
+
+
+def test_get_and_store_state_no_redis(mock_settings, mock_cache):
+    """Test state storage falls back to session when Redis is not available."""
+    mock_settings.CACHES["default"]["BACKEND"] = (
+        "django.core.cache.backends.locmem.LocMemCache"
+    )
+
+    ibl_auth = IBLAppleIdAuth(strategy=None)
+    request = MagicMock()
+    request.session.session_key = "test_session_key"
+
+    with mock_patch("uuid.uuid4", return_value="dummy_state"):
+        state = ibl_auth.get_and_store_state(request)
+        mock_cache.set.assert_not_called()
+        assert state == "dummy_state"
+        assert request.session["apple_auth_state"] == "dummy_state"

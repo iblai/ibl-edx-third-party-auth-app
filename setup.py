@@ -23,7 +23,7 @@ def package_data(pkg, roots):
 
 setup(
     name="ibl-third-party-auth",
-    version="2.0.6",
+    version="2.0.7",
     install_requires=[
         "ddt",
         "social-auth-app-django",
