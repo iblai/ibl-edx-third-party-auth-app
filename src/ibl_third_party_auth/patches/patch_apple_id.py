@@ -77,10 +77,10 @@ import time
 import uuid
 
 import jwt
-import redis
 from common.djangoapps.third_party_auth import appleid
 from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
+from django.core.cache import cache
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
 from social_core.exceptions import AuthFailed, AuthStateMissing
@@ -88,41 +88,17 @@ from social_core.exceptions import AuthFailed, AuthStateMissing
 log = logging.getLogger(__name__)
 
 
-def get_redis_client():
-    """Get Redis client using Open edX settings."""
+def verify_redis_cache():
+    """Verify that Django's cache backend is Redis."""
     from django.conf import settings
 
-    cache_config = settings.CACHES.get("default", {})
-    if cache_config.get("BACKEND") == "django_redis.cache.RedisCache":
-        location = cache_config.get("LOCATION")
-        log.info(f"Using Redis location from cache settings: {location}")
-        try:
-            return redis.Redis.from_url(
-                location,
-                decode_responses=True,  # Automatically decode responses
-                socket_timeout=5,  # Add timeout
-            )
-        except Exception as e:
-            log.error(f"Failed to connect to Redis using location {location}: {str(e)}")
-            try:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(location)
-                return redis.Redis(
-                    host=parsed.hostname,
-                    port=parsed.port,
-                    db=int(parsed.path.lstrip("/") or "0"),
-                    password=parsed.password,
-                    socket_timeout=5,
-                    decode_responses=True,
-                )
-            except Exception as e:
-                log.error(
-                    f"Failed to connect to Redis with explicit parameters: {str(e)}"
-                )
-                raise
-
-    raise Exception("Redis cache configuration not found in settings")
+    cache_backend = settings.CACHES.get("default", {}).get("BACKEND", "")
+    if cache_backend == "django_redis.cache.RedisCache":
+        log.info("Using Redis cache backend")
+        return True
+    else:
+        log.warning(f"Cache backend is not Redis (found: {cache_backend})")
+        return False
 
 
 class IBLAppleIdAuth(AppleIdAuth):
@@ -145,6 +121,8 @@ class IBLAppleIdAuth(AppleIdAuth):
     def __init__(self, *args, **kwargs):
         log.info("Initializing IBLAppleIdAuth...")
         super().__init__(*args, **kwargs)
+        # Verify Redis cache on initialization
+        verify_redis_cache()
 
     def auth_complete(self, *args, **kwargs):
         """Complete the auth process."""
@@ -176,24 +154,23 @@ class IBLAppleIdAuth(AppleIdAuth):
         elif self.get_scope():
             params["response_mode"] = "form_post"
 
-        # Store state in both Redis and session
+        # Store state in both cache and session
         if state:
             log.info(f"Storing state in auth_params: {state}")
             try:
-                redis_client = get_redis_client()
                 session_key = self.strategy.session.session_key
                 if not session_key:
                     self.strategy.session.create()
                     session_key = self.strategy.session.session_key
 
-                redis_key = f"apple_auth_state:{session_key}"
-                redis_client.setex(redis_key, 300, state)
+                cache_key = f"apple_auth_state:{session_key}"
+                cache.set(cache_key, state, timeout=300)
                 self.strategy.session["apple_auth_state"] = state
 
                 # Verify storage
-                stored_redis_state = redis_client.get(redis_key)
+                stored_cache_state = cache.get(cache_key)
                 stored_session_state = self.strategy.session.get("apple_auth_state")
-                log.info(f"State stored in Redis: {stored_redis_state}")
+                log.info(f"State stored in cache: {stored_cache_state}")
                 log.info(f"State stored in session: {stored_session_state}")
             except Exception as e:
                 log.error(
@@ -315,6 +292,46 @@ class IBLAppleIdAuth(AppleIdAuth):
 
         return user_details
 
+    def get_and_store_state(self, request):
+        """Generate and store state parameter."""
+        log.info("Generating and storing state parameter")
+
+        state = str(uuid.uuid4())
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        log.info(f"Generated state: {state}")
+
+        try:
+            if not verify_redis_cache():
+                log.warning("Falling back to session-only storage")
+                request.session["apple_auth_state"] = state
+                return state
+
+            # Store state using Django's cache framework
+            cache_key = f"apple_auth_state:{session_key}"
+            cache.set(cache_key, state, timeout=300)  # 5 minutes timeout
+
+            # Also store in session for redundancy
+            request.session["apple_auth_state"] = state
+
+            # Verify storage
+            stored_cache_state = cache.get(cache_key)
+            stored_session_state = request.session.get("apple_auth_state")
+
+            log.info(f"State stored in cache: {stored_cache_state}")
+            log.info(f"State stored in session: {stored_session_state}")
+
+            return state
+
+        except Exception as e:
+            log.error(f"Error storing state: {str(e)}", exc_info=True)
+            # Fallback to session-only storage
+            request.session["apple_auth_state"] = state
+            return state
+
     def validate_state(self):
         """Validate the state parameter."""
         try:
@@ -322,33 +339,40 @@ class IBLAppleIdAuth(AppleIdAuth):
             received_state = self.get_request_state()
             session_key = self.strategy.session.session_key
 
-            # Only log partial state for debugging (first 8 chars)
+            # Only log partial state for debugging
             state_preview = received_state[:8] if received_state else None
             log.info(f"Validating state starting with: {state_preview}...")
 
-            redis_client = get_redis_client()
-            redis_key = f"apple_auth_state:{session_key}"
-            stored_redis_state = redis_client.get(redis_key)
+            # Check if we're using Redis cache
+            using_redis = verify_redis_cache()
+
+            if using_redis:
+                # Try getting state from cache
+                cache_key = f"apple_auth_state:{session_key}"
+                stored_cache_state = cache.get(cache_key)
+                if stored_cache_state and stored_cache_state == received_state:
+                    log.info("State validated from cache")
+                    cache.delete(cache_key)
+                    return received_state
+
+            # Try session storage
             stored_session_state = self.strategy.session.get("apple_auth_state")
-
-            if stored_redis_state and stored_redis_state == received_state:
-                log.info("State validated from Redis")
-                redis_client.delete(redis_key)
-                return received_state
-
             if stored_session_state and stored_session_state == received_state:
                 log.info("State validated from session")
                 del self.strategy.session["apple_auth_state"]
                 return received_state
 
-            if not stored_redis_state and not stored_session_state:
-                log.warning("No stored state found")
-                if (
-                    hasattr(settings, "SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION")
-                    and settings.SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION
-                ):
-                    log.warning("State validation bypassed per settings")
-                    return received_state
+            if not using_redis and not stored_session_state:
+                log.warning("No stored state found (session only)")
+            elif using_redis and not stored_cache_state and not stored_session_state:
+                log.warning("No stored state found (cache and session)")
+
+            if (
+                hasattr(settings, "SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION")
+                and settings.SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION
+            ):
+                log.warning("State validation bypassed per settings")
+                return received_state
 
             log.error("State validation failed")
             raise AuthStateMissing(self, "state")
