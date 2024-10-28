@@ -1,4 +1,15 @@
 # ChangeLog
+
+## 2.0.7
+- Improve Apple ID authentication logging and state management:
+  - Switch to Django's cache framework for state management
+  - Add verification of Redis cache backend
+  - Clean up logging to focus on authentication flow stages
+  - Add session fallback for state storage
+  - Add state validation bypass option for debugging
+  - Remove sensitive data from logs
+  - Add more descriptive error messages
+
 ## 2.0.6
 - Fix for Apple ID authentication
 

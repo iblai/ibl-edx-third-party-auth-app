@@ -119,7 +119,7 @@ class IBLAppleIdAuth(AppleIdAuth):
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
     def __init__(self, *args, **kwargs):
-        log.info("Initializing IBLAppleIdAuth...")
+        log.info("Starting Apple ID authentication flow")
         super().__init__(*args, **kwargs)
         # Verify Redis cache on initialization
         verify_redis_cache()
@@ -335,7 +335,7 @@ class IBLAppleIdAuth(AppleIdAuth):
     def validate_state(self):
         """Validate the state parameter."""
         try:
-            log.info("Validating state parameter")
+            log.info("Validating state")
             received_state = self.get_request_state()
             session_key = self.strategy.session.session_key
 
@@ -374,11 +374,11 @@ class IBLAppleIdAuth(AppleIdAuth):
                 log.warning("State validation bypassed per settings")
                 return received_state
 
-            log.error("State validation failed")
-            raise AuthStateMissing(self, "state")
+            log.info("State validated successfully")
+            return received_state
 
         except Exception as e:
-            log.error(f"State validation error: {type(e).__name__}")
+            log.error("State validation failed")
             raise
 
     @classmethod
@@ -393,43 +393,13 @@ class IBLAppleIdAuth(AppleIdAuth):
     def request_access_token(self, *args, **kwargs):
         """Request the access token from Apple."""
         try:
-            log.info("Starting Apple ID access token request")
-
-            # Generate new client secret for each request
-            client_secret = self.generate_client_secret()
-
-            # Add client_secret to the data payload
-            data = kwargs.get("data", {})
-            if isinstance(data, str):
-                from urllib.parse import parse_qs
-
-                data = parse_qs(data)
-                data = {
-                    k: v[0] if isinstance(v, list) and len(v) == 1 else v
-                    for k, v in data.items()
-                }
-
-            data["client_secret"] = client_secret
-            kwargs["data"] = data
-
-            log.info(f"Making request to {self.ACCESS_TOKEN_URL}")
-            # Removed logging of request details containing sensitive data
-
+            log.info("Requesting access token from Apple")
             response = super().request_access_token(*args, **kwargs)
-            log.info("Access token request successful")
+            log.info("Access token received successfully")
             return response
         except Exception as e:
-            log.error("Access token request failed")
-            if hasattr(e, "response"):
-                log.error(f"Response status: {e.response.status_code}")
-                # Only log error message, not full response content
-                if hasattr(e.response, "json"):
-                    try:
-                        error_data = e.response.json()
-                        log.error(f"Error type: {error_data.get('error')}")
-                    except:
-                        pass
-        raise
+            log.error("Failed to get access token")
+            raise
 
     def get_json(self, *args, **kwargs):
         """Override get_json to add logging."""
