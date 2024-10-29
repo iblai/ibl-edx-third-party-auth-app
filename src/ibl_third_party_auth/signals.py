@@ -3,6 +3,7 @@ from importlib import import_module
 
 from common.djangoapps.student.models import UserProfile
 from django.conf import settings
+from django.contrib.admin.models import ADDITION, CHANGE
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -66,7 +67,8 @@ def set_cms_login_session(profile, session_id=None):
 @receiver(post_save, sender=UserSocialAuth)
 def handle_social_auth_creation(sender, instance, created, **kwargs):
     """
-    Signal handler to automatically link users to platforms when their social auth account is created.
+    Signal handler to automatically link users to platforms when their social auth account is created
+    or updated through admin or normal flow.
 
     Args:
         sender: The model class (UserSocialAuth)
@@ -74,7 +76,15 @@ def handle_social_auth_creation(sender, instance, created, **kwargs):
         created (bool): True if this is a new instance
         **kwargs: Additional keyword arguments
     """
-    if not created:
+    # Get the current action from request if available (for admin actions)
+    request = kwargs.get("request")
+    if request and hasattr(request, "_social_auth_action"):
+        action = request._social_auth_action
+    else:
+        action = ADDITION if created else CHANGE
+
+    # Only process for new instances or admin updates
+    if not (created or action == CHANGE):
         return
 
     monitored_providers = get_monitored_providers()
@@ -84,7 +94,8 @@ def handle_social_auth_creation(sender, instance, created, **kwargs):
         return
 
     log.info(
-        f"New social auth created for user {instance.user.id} with provider {instance.provider}"
+        f"Processing social auth for user {instance.user.id} with provider {instance.provider} "
+        f"(Action: {'created' if created else 'updated'})"
     )
 
     # Get provider configuration
@@ -105,15 +116,15 @@ def handle_social_auth_creation(sender, instance, created, **kwargs):
         if result:
             log.info(
                 f"Successfully linked user {instance.user.id} to platform {platform_key} "
-                f"after social auth creation"
+                f"after social auth {'creation' if created else 'update'}"
             )
         else:
             log.error(
                 f"Failed to link user {instance.user.id} to platform {platform_key} "
-                f"after social auth creation"
+                f"after social auth {'creation' if created else 'update'}"
             )
     except Exception as e:
         log.exception(
             f"Error linking user {instance.user.id} to platform {platform_key} "
-            f"after social auth creation: {str(e)}"
+            f"after social auth {'creation' if created else 'update'}: {str(e)}"
         )

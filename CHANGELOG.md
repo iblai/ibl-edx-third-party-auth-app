@@ -2,7 +2,8 @@
 
 ## 2.0.8
 - Add automatic platform linking for provider users:
-  - Add signal handler to monitor social auth creation
+  - Add signal handler to monitor social auth creation and updates
+  - Add support for admin interface actions
   - Add utility functions for provider configuration management
   - Add management command for linking existing users to platforms
   - Add configurable MONITORED_PROVIDERS setting (defaults to ['azuread-oauth2'])

@@ -312,10 +312,10 @@ For existing users who were created before the automatic linking was implemented
 
 ```bash
 # Link users from a specific provider
-python manage.py link_provider_users_to_platform azuread-oauth2
+python ./manage.py lms link_provider_users_to_platform azuread-oauth2
 
 # Link users from all monitored providers
-python manage.py link_provider_users_to_platform
+python ./manage.py lms link_provider_users_to_platform
 ```
 
 The command will:
