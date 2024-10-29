@@ -280,3 +280,59 @@ This process needs to be repeated for each `LMS` and `CMS` domain that exists.
 - Logging into the CMS first will result in a "Page Not Found" because it will try to redirect to a `registration` url
     - User's who have a keycloak account but haven't created their edx account should always login through the LMS first
 - Logging into the LMS could present the user with additional fields to fill out, depending on what's passed via the id token (given name, family name, etc) and how the `REGISTRATION_EXTRA_FIELDS` is configured.
+
+## Azure AD Platform Linking
+This feature automatically links users authenticated through Azure AD to their corresponding platform in the Manager API.
+
+### Configuration
+
+1. In your OAuth2 Provider Configuration, add the platform key to the other_settings:
+```json
+{
+    "platform_key": "your_platform_key",
+    "backend_uri": "/auth/login/azuread-oauth2",
+    // ... other settings ...
+}
+```
+
+2. (Optional) Configure the monitored provider name in your settings:
+```python
+# In your OpenEdX settings
+AZURE_PROVIDER = 'azuread-oauth2'  # This is the default if not specified
+```
+
+### Automatic Linking
+When a user authenticates through Azure AD:
+1. A UserSocialAuth record is created
+2. The system automatically retrieves the platform_key from the provider configuration
+3. The user is automatically linked to the platform using the Manager API
+
+### Manual Linking (Management Command)
+For users that were created before the automatic linking was implemented, you can use the management command:
+
+```bash
+# Link all existing users from a specific provider to their platform
+python manage.py link_provider_users_to_platform azuread-oauth2
+```
+
+The command will:
+- Find all users with social auth links from the specified provider
+- Get the platform_key from the provider's configuration
+- Attempt to link each user to the platform
+- Provide progress updates and a final summary
+
+### Response Codes
+The platform linking process may return the following status codes:
+- 200: User was already linked to the platform
+- 201: User was successfully linked to the platform
+- 400: Bad parameters
+- 500: Platform link failed
+
+### Logging
+The system logs all platform linking activities:
+- New social auth creation
+- Platform key retrieval
+- Linking attempts and results
+- Any errors during the process
+
+Logs can be monitored through your standard OpenEdX logging configuration.
