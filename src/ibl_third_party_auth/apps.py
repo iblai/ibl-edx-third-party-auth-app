@@ -74,3 +74,6 @@ class IBLThirdPartyAuthConfig(AppConfig):
 
         except Exception as e:
             log.error(f"Error during patching: {str(e)}", exc_info=True)
+
+        # Import signal handlers
+        import ibl_third_party_auth.signals  # noqa

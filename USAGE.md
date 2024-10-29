@@ -280,3 +280,46 @@ This process needs to be repeated for each `LMS` and `CMS` domain that exists.
 - Logging into the CMS first will result in a "Page Not Found" because it will try to redirect to a `registration` url
     - User's who have a keycloak account but haven't created their edx account should always login through the LMS first
 - Logging into the LMS could present the user with additional fields to fill out, depending on what's passed via the id token (given name, family name, etc) and how the `REGISTRATION_EXTRA_FIELDS` is configured.
+
+## Platform Linking
+This feature automatically links users authenticated through configured providers to their corresponding platform in the Manager API.
+
+### Configuration
+
+1. In your OAuth2 Provider Configuration, add the platform key to the other_settings:
+```json
+{
+    "platform_key": "your_platform_key",
+    "backend_uri": "/auth/login/azuread-oauth2",
+    // ... other settings ...
+}
+```
+
+2. (Optional) Configure the monitored providers in your settings:
+```python
+# In your OpenEdX settings
+MONITORED_PROVIDERS = ['azuread-oauth2', 'other-provider']  # Defaults to ['azuread-oauth2'] if not specified
+```
+
+### Automatic Linking
+When a user authenticates through any monitored provider:
+1. A UserSocialAuth record is created
+2. The system automatically retrieves the platform_key from the provider configuration
+3. The user is automatically linked to the platform using the Manager API
+
+### Management Command
+For existing users who were created before the automatic linking was implemented, you can use the management command to link them to their platforms:
+
+```bash
+# Link users from a specific provider
+python ./manage.py lms link_provider_users_to_platform azuread-oauth2
+
+# Link users from all monitored providers
+python ./manage.py lms link_provider_users_to_platform
+```
+
+The command will:
+- Find all users with social auth links from the specified provider(s)
+- Get the platform_key from each provider's configuration
+- Attempt to link each user to their corresponding platform
+- Provide progress updates and a final summary for each provider

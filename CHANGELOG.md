@@ -1,5 +1,28 @@
 # ChangeLog
 
+## 2.0.8
+- Add automatic platform linking for provider users:
+  - Add signal handler to monitor social auth creation and updates
+  - Add support for admin interface actions
+  - Add utility functions for provider configuration management
+  - Add management command for linking existing users to platforms
+  - Add configurable MONITORED_PROVIDERS setting (defaults to ['azuread-oauth2'])
+  - Add platform key extraction from provider settings
+  - Improve logging for platform linking process
+  - Add error handling for platform linking failures
+  - Fix signal handling for admin interface actions:
+    - Add custom admin class to properly trigger signals
+    - Add explicit signal sending for admin actions
+    - Improve logging for signal handling debugging
+  - Add comprehensive test coverage:
+    - Test provider configuration retrieval
+    - Test platform key extraction
+    - Test custom provider settings
+    - Test management command functionality
+    - Test signal handler behavior
+    - Test error handling scenarios
+    - Test provider filtering
+
 ## 2.0.7
 - Improve Apple ID authentication logging and security:
   - Add consistent state value masking (showing first 8 characters)
