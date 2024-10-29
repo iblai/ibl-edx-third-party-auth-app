@@ -76,15 +76,23 @@ def handle_social_auth_creation(sender, instance, created, **kwargs):
         created (bool): True if this is a new instance
         **kwargs: Additional keyword arguments
     """
+    log.info(
+        f"Signal received for UserSocialAuth - Created: {created}, "
+        f"Provider: {instance.provider}, User ID: {instance.user.id}"
+    )
+
     # Get the current action from request if available (for admin actions)
     request = kwargs.get("request")
     if request and hasattr(request, "_social_auth_action"):
         action = request._social_auth_action
+        log.info(f"Admin action detected: {action}")
     else:
         action = ADDITION if created else CHANGE
+        log.info(f"Non-admin action detected: {action}")
 
     # Only process for new instances or admin updates
     if not (created or action == CHANGE):
+        log.info("Skipping - not a new instance or admin update")
         return
 
     monitored_providers = get_monitored_providers()
