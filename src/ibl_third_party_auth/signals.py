@@ -9,7 +9,7 @@ from django.dispatch import receiver
 from social_django.models import UserSocialAuth
 
 from ibl_third_party_auth.utils.provider_utils import (
-    get_monitored_provider,
+    get_monitored_providers,
     get_platform_key_from_provider,
     get_provider_config_by_backend,
 )
@@ -77,10 +77,10 @@ def handle_social_auth_creation(sender, instance, created, **kwargs):
     if not created:
         return
 
-    monitored_provider = get_monitored_provider()
+    monitored_providers = get_monitored_providers()
 
-    # Check if this is the provider we want to monitor
-    if instance.provider != monitored_provider:
+    # Check if this is one of the providers we want to monitor
+    if instance.provider not in monitored_providers:
         return
 
     log.info(

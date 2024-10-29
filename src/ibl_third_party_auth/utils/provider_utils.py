@@ -51,11 +51,33 @@ def get_platform_key_from_provider(provider_config):
         return None
 
 
-def get_monitored_provider():
+def get_monitored_providers():
     """
-    Get the provider name that should be monitored for social auth creation.
+    Get the list of provider names that should be monitored for social auth creation.
 
     Returns:
-        str: The provider name to monitor (defaults to 'azuread-oauth2')
+        list: List of provider names to monitor. Defaults to ['azuread-oauth2'] if not specified
     """
-    return getattr(settings, "AZURE_PROVIDER", "azuread-oauth2")
+    default_providers = ["azuread-oauth2"]
+    providers = getattr(settings, "MONITORED_PROVIDERS", default_providers)
+
+    # Handle string input for backward compatibility
+    if isinstance(providers, str):
+        providers = [providers]
+
+    return providers
+
+
+def get_social_auth_users_by_provider(provider):
+    """
+    Get all UserSocialAuth entries for a specific provider.
+
+    Args:
+        provider (str): The provider name (e.g., 'azuread-oauth2')
+
+    Returns:
+        QuerySet: A queryset of UserSocialAuth objects
+    """
+    from social_django.models import UserSocialAuth
+
+    return UserSocialAuth.objects.filter(provider=provider)

@@ -1,11 +1,11 @@
 # ChangeLog
 
 ## 2.0.8
-- Add automatic platform linking for Azure AD users:
+- Add automatic platform linking for provider users:
   - Add signal handler to monitor social auth creation
   - Add utility functions for provider configuration management
   - Add management command for linking existing users to platforms
-  - Add configurable AZURE_PROVIDER setting (defaults to 'azuread-oauth2')
+  - Add configurable MONITORED_PROVIDERS setting (defaults to ['azuread-oauth2'])
   - Add platform key extraction from provider settings
   - Improve logging for platform linking process
   - Add error handling for platform linking failures
