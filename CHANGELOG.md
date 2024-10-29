@@ -10,6 +10,10 @@
   - Add platform key extraction from provider settings
   - Improve logging for platform linking process
   - Add error handling for platform linking failures
+  - Fix signal handling for admin interface actions:
+    - Add custom admin class to properly trigger signals
+    - Add explicit signal sending for admin actions
+    - Improve logging for signal handling debugging
   - Add comprehensive test coverage:
     - Test provider configuration retrieval
     - Test platform key extraction
