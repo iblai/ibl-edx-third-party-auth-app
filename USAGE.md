@@ -306,3 +306,20 @@ When a user authenticates through any monitored provider:
 1. A UserSocialAuth record is created
 2. The system automatically retrieves the platform_key from the provider configuration
 3. The user is automatically linked to the platform using the Manager API
+
+### Management Command
+For existing users who were created before the automatic linking was implemented, you can use the management command to link them to their platforms:
+
+```bash
+# Link users from a specific provider
+python manage.py link_provider_users_to_platform azuread-oauth2
+
+# Link users from all monitored providers
+python manage.py link_provider_users_to_platform
+```
+
+The command will:
+- Find all users with social auth links from the specified provider(s)
+- Get the platform_key from each provider's configuration
+- Attempt to link each user to their corresponding platform
+- Provide progress updates and a final summary for each provider
