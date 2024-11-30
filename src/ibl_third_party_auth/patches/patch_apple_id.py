@@ -80,10 +80,13 @@ import jwt
 from common.djangoapps.third_party_auth import appleid
 from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
 from social_core.exceptions import AuthFailed, AuthStateMissing
+from social_django.models import UserSocialAuth
 
 log = logging.getLogger(__name__)
 
@@ -261,6 +264,47 @@ class IBLAppleIdAuth(AppleIdAuth):
             log.error(f"Token validation failed: {str(e)}")
             raise AuthFailed(self, "Token validation failed")
 
+    def get_user_fullname(self, email):
+        log.info(f"Checking user detail for email: {email}")
+        try:
+            # Check if the user exists
+            user = User.objects.get(email=email)
+            # If exists, return first name and last name
+            log.info(
+                f"User detail found for email: {email}, using: {user.first_name} {user.last_name}"
+            )
+            return user.first_name, user.last_name
+        except ObjectDoesNotExist:
+            # User does not exist
+            log.info(f"No user detail found for email: {email}")
+            return "", ""
+
+    def get_user_by_social_uid(self, uid, provider="apple-id"):
+        """
+        Fetch the Open edX user associated with a given social auth UID.
+
+        Args:
+            provider (str): The name of the social authentication provider (e.g., 'apple', 'google-oauth2').
+            uid (str): The UID provided by the social auth provider.
+
+        Returns:
+            dict: A dictionary with user details if found, otherwise None.
+        """
+        log.info(f"Checking user detail for apple_id: {uid}")
+        try:
+            # Get the social auth entry
+            social_auth = UserSocialAuth.objects.get(provider=provider, uid=uid)
+
+            # Retrieve the associated user
+            user = social_auth.user
+
+            # Prepare user details to return
+            return user.first_name, user.last_name
+
+        except UserSocialAuth.DoesNotExist:
+            log.info(f"No user detail found for apple_id: {uid}")
+            return "", ""
+
     def get_user_details(self, response):
         """Get user details from the response."""
         name = response.get("name") or {}
@@ -272,17 +316,32 @@ class IBLAppleIdAuth(AppleIdAuth):
         log.info("Retrieved user details from Apple ID response")
         if email:
             log.info("Email address present in response")
+        apple_id = response.get(self.ID_KEY, "")
+        # Add call to check if user detail exists
+        log.info(f"Checking user detail for email: {email}")
+        get_first_name, get_last_name = self.get_user_fullname(email)
 
+        if not get_first_name and not get_last_name:
+            log.info(
+                f"No user detail found for email: {email}, checking by apple_id: {apple_id}"
+            )
+            get_first_name, get_last_name = self.get_user_by_social_uid(apple_id)
+
+        get_fullname = ""
+        if get_first_name or get_last_name:
+            log.info(
+                f"User detail found for email: {email}, using: {get_first_name} {get_last_name}"
+            )
+            get_fullname = f"{get_first_name} {get_last_name}".strip()
         # Rest of the method remains the same
         fullname, first_name, last_name = self.get_user_names(
-            fullname=str(email).split("@")[0],
-            first_name=name.get("firstName", ""),
-            last_name=name.get("lastName", ""),
+            fullname=get_fullname or str(email).split("@")[0],
+            first_name=name.get("firstName", get_first_name),
+            last_name=name.get("lastName", get_last_name),
         )
-        apple_id = response.get(self.ID_KEY, "")
 
         user_details = {
-            "fullname": str(email).split("@")[0],
+            "fullname": fullname or str(email).split("@")[0],
             "first_name": first_name or str(email).split("@")[0],
             "last_name": last_name or str(email).split("@")[0],
             "email": email,
