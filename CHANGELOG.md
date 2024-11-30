@@ -1,5 +1,13 @@
 # ChangeLog
 
+## 2.0.9
+- Enhance Apple ID user detail retrieval:
+  - Add `get_user_fullname` method to fetch user details by email
+  - Add `get_user_by_social_uid` method to fetch user details by Apple ID
+  - Improve user name fallback logic in authentication flow
+  - Add detailed logging for user detail retrieval process
+  - Maintain existing user names when re-authenticating
+
 ## 2.0.8
 - Add automatic platform linking for provider users:
   - Add signal handler to monitor social auth creation and updates
