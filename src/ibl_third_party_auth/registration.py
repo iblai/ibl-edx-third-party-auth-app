@@ -56,13 +56,33 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
     def verify_google_jwt_token(self, id_token, access_token, backend="google-oauth2"):
         try:
+            # Log the input parameters
+            log.info(f"Starting Google JWT verification for backend: {backend}")
+            log.debug(f"ID token length: {len(id_token) if id_token else 'None'}")
+            log.debug(
+                f"Access token length: {len(access_token) if access_token else 'None'}"
+            )
+
             # Decode the JWT header to get the Key ID (kid)
             header = jwt.get_unverified_header(id_token)
             kid = header["kid"]
+            log.info(f"Extracted kid from token header: {kid}")
 
             # Get the public key from Google's JWKs
-            jwk_key = self.get_google_jwk(kid)
-            public_key = RSAAlgorithm.from_jwk(jwk_key)
+            try:
+                jwk_key = self.get_google_jwk(kid)
+                log.info("Successfully retrieved Google JWK")
+                log.debug(f"JWK contents: {jwk_key}")
+            except Exception as e:
+                log.error(f"Failed to get Google JWK: {str(e)}")
+                return False
+
+            try:
+                public_key = RSAAlgorithm.from_jwk(jwk_key)
+                log.info("Successfully constructed RSA public key from JWK")
+            except Exception as e:
+                log.error(f"Failed to construct public key from JWK: {str(e)}")
+                return False
 
             try:
                 claims = jwt.decode(
@@ -71,28 +91,48 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     access_token=access_token,
                     algorithms=["RS256"],
                     issuer="https://accounts.google.com",
-                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False, "verify_aud": False},
+                    options={
+                        "verify_sub": False,
+                        "verify_jti": False,
+                        "verify_at_hash": False,
+                        "verify_aud": False,
+                    },
                 )
+                log.info("Successfully decoded JWT claims")
+                log.debug(f"Decoded claims: {claims}")
             except Exception as e:
-                log.error(f"Error decoding token: {e}")
+                log.error(f"Error decoding token: {str(e)}")
+                log.error(
+                    f"Token decode failed with exception type: {type(e).__name__}"
+                )
                 return False
 
             # Check the expiration
-            if claims["exp"] < time.time():
-                log.error("Error: Token has expired")
+            current_time = time.time()
+            if claims["exp"] < current_time:
+                log.error(
+                    f"Token expired. Expiration: {claims['exp']}, Current time: {current_time}"
+                )
                 return False
+            log.info("Token expiration check passed")
 
             # Verify the JWT signature and decode the token
             provider = IBLProviderConfig()
             audience = provider.get_audience(backend)
+            log.info(f"Retrieved audience from provider: {audience}")
+            log.debug(f"Token aud claim: {claims['aud']}")
 
             if claims["aud"] not in audience:
-                log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {audience}")
+                log.error(
+                    f"Audience validation failed. Token aud: {claims['aud']}, Valid audiences: {audience}"
+                )
                 return False
+            log.info("Audience validation passed")
 
             return claims
         except Exception as e:
-            log.error(f"Token verification failed: {e}")
+            log.error(f"Token verification failed with unexpected error: {str(e)}")
+            log.exception("Full traceback:")
             return False
 
     def get_apple_jwk(self, kid):
@@ -125,11 +165,15 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             claims = jwt.get_unverified_claims(access_token)
             if isinstance(self.setting("AUDIENCE"), list):
                 if claims["aud"] not in self.setting("AUDIENCE"):
-                    log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {self.setting('AUDIENCE')}")
+                    log.error(
+                        f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {self.setting('AUDIENCE')}"
+                    )
                     return False
             else:
                 if claims["aud"] != self.setting("AUDIENCE"):
-                    log.error(f"Error: Provided audience: {claims['aud']} is not the valid audience: {self.setting('AUDIENCE')}")
+                    log.error(
+                        f"Error: Provided audience: {claims['aud']} is not the valid audience: {self.setting('AUDIENCE')}"
+                    )
                     return False
             if claims["exp"] < time.time():
                 log.error("Error: Token has expired")
@@ -196,7 +240,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                decoded_data = self.verify_google_jwt_token(id_token, access_token, backend)
+                decoded_data = self.verify_google_jwt_token(
+                    id_token, access_token, backend
+                )
                 if not decoded_data:
                     return Response(
                         {"error": "id_token could not be verified"},
@@ -227,6 +273,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
     def create_user_account(self, request, data={}, backend="apple-id"):
         import re
+
         if backend == "apple-id":
             params = request.data
             email = params.get("email")
