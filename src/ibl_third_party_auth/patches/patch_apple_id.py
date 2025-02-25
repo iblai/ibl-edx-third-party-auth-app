@@ -82,7 +82,7 @@ from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
 from social_core.exceptions import AuthFailed, AuthStateMissing
@@ -317,6 +317,34 @@ class IBLAppleIdAuth(AppleIdAuth):
         if email:
             log.info("Email address present in response")
         apple_id = response.get(self.ID_KEY, "")
+
+        # Check if user creation is disabled and if the user exists
+        if getattr(settings, "SOCIAL_AUTH_DISABLE_USER_CREATION", False):
+            # Check if user exists by email
+            user_exists = User.objects.filter(email=email).exists() if email else False
+            # Check if user exists by username (using email or apple_id based on settings)
+            username = email if self.setting("EMAIL_AS_USERNAME") else apple_id
+            username_exists = (
+                User.objects.filter(username=username).exists() if username else False
+            )
+            # Check if user exists by social auth
+            social_auth_exists = (
+                UserSocialAuth.objects.filter(provider=self.name, uid=apple_id).exists()
+                if apple_id
+                else False
+            )
+
+            if not user_exists and not username_exists and not social_auth_exists:
+                log.error(
+                    f"User creation disabled and no existing user found for Apple ID login. "
+                    f"Checked email, username and social auth."
+                )
+                raise PermissionDenied(
+                    "User creation is disabled. Please contact support if you need access."
+                )
+
+            log.info("Found existing user match for Apple ID login")
+
         # Add call to check if user detail exists
         log.info(f"Checking user detail for email: {email}")
         get_first_name, get_last_name = self.get_user_fullname(email)
@@ -333,6 +361,7 @@ class IBLAppleIdAuth(AppleIdAuth):
                 f"User detail found for email: {email}, using: {get_first_name} {get_last_name}"
             )
             get_fullname = f"{get_first_name} {get_last_name}".strip()
+
         # Rest of the method remains the same
         fullname, first_name, last_name = self.get_user_names(
             fullname=get_fullname or str(email).split("@")[0],

@@ -16,14 +16,14 @@ This document covers installation and backend setup. For customer facing usage a
 cd $(tutor config printroot)"/env/build/openedx/requirements
 git clone --branch koa-tutor-plugin https://gitlab.com/iblstudios/ibl-edx-third-party-auth.git
 
-#Enter the lms shell 
+#Enter the lms shell
 tutor local run lms bash
 pip install -e ../requirement/ibl-edx-third-party-auth
 ```
 
 #### Uninstall
 ```
-#Enter the lms shell 
+#Enter the lms shell
 tutor local run lms bash
 pip uninstall ibl_third_party_auth
 ```
