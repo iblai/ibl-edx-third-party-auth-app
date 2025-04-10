@@ -11,7 +11,7 @@ from ibl_third_party_auth import backchannel_logout
 from django.contrib.auth import get_user_model
 from django.http.response import JsonResponse
 from oauth2_provider.models import get_application_model, Application
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ def back_channel_logout(request, backend):
 
 
 
+@require_http_methods(["POST"])
 def oauth_dynamic_client_registration(request):
     user, _ = get_user_model().objects.get_or_create(username="ibltokenmanager")
     client_metadata = request.POST
