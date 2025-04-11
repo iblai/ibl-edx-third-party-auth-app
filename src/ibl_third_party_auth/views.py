@@ -88,8 +88,11 @@ class DMTokenView(OAuthLibMixin, View):
             access_token = json.loads(body).get("access_token")
             token = get_access_token_model().objects.get(token=access_token)
             try:
+                log.info(token.user.email)
+                log.info(token.user.username)
+                log.info(token.user.id)
                 response = manager_api_request(
-                    "POST", MANAGER_TOKEN_ENDPOINT_PATH, data={"user_id": token.user.id}
+                    "POST", MANAGER_TOKEN_ENDPOINT_PATH, data={"email": token.user.email}
                 )
 
                 try:
@@ -103,7 +106,7 @@ class DMTokenView(OAuthLibMixin, View):
                             response.text,
                         )
 
-                data = None
+                    data = None
             except Exception:
                 log.exception("Token proxy request error")
                 data = None
@@ -114,7 +117,7 @@ class DMTokenView(OAuthLibMixin, View):
             expires_in = None
             if data.get("expiry"):
                 expiry = self.parse_iso8601_to_utc(data["expiry"])
-                expires_in = (timezone.now() - expiry).total_seconds()
+                expires_in = (expiry - timezone.now()).total_seconds()
 
             http_resp_data = {
             "access_token": data["token"],
