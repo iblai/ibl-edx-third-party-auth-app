@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from ibl_third_party_auth import backchannel_logout
 from django.contrib.auth import get_user_model
-from django.http.response import JsonResponse
+from django.http.response import JsonResponse, HttpResponse
 from oauth2_provider.models import get_application_model, Application
 from django.views.decorators.http import require_http_methods
 from ibl_request_router.api.manager import manager_api_request
@@ -22,9 +22,7 @@ from ibl_request_router.config import (
 )
 from django.utils import timezone
 from oauth2_provider.views.mixins import OAuthLibMixin
-from django.http import Http404
 from oauth2_provider.models import get_access_token_model
-import hashlib
 from django.utils.decorators import method_decorator
 import datetime
 
@@ -113,7 +111,7 @@ class DMTokenView(OAuthLibMixin, View):
             if data and not data.get("token"):
                 data = None
             if not data:
-                raise Http404
+                return HttpResponse("404 Not Found", status=404)
             expires_in = None
             if data.get("expiry"):
                 expiry = self.parse_iso8601_to_utc(data["expiry"])
@@ -121,7 +119,7 @@ class DMTokenView(OAuthLibMixin, View):
 
             http_resp_data = {
             "access_token": data["token"],
-            "token_type": "Bearer",
+            "token_type": "Token",
             "expires_in": expires_in,
             "refresh_token": None,
             "scope": "read write"
@@ -132,7 +130,7 @@ class DMTokenView(OAuthLibMixin, View):
             for k, v in headers.items():
                 http_resp[k] = v
             return http_resp
-        raise Http404
+        return HttpResponse("404 Not Found", status=404)
 
 @csrf_exempt
 @require_http_methods(["POST"])
