@@ -86,8 +86,7 @@ class DMTokenView(OAuthLibMixin, View):
         url, headers, body, status = self.create_token_response(request)
         if status == 200:
             access_token = json.loads(body).get("access_token")
-            token_checksum = hashlib.sha256(access_token.encode("utf-8")).hexdigest()
-            token = get_access_token_model().objects.get(token_checksum=token_checksum)
+            token = get_access_token_model().objects.get(token=access_token)
             try:
                 response = manager_api_request(
                     "POST", MANAGER_TOKEN_ENDPOINT_PATH, data={"user_id": token.user.id}
