@@ -530,8 +530,8 @@ def patch():
         original_request_access_token = BaseOAuth2.request_access_token
 
         def patched_request_access_token(self, *args, **kwargs):
-            log.info(f"request_access_token called on {self.__class__}")
             if isinstance(self, IBLAppleIdAuth):
+                log.info(f"request_access_token called on {self.__class__}")
                 log.info("Using IBLAppleIdAuth implementation")
             return original_request_access_token(self, *args, **kwargs)
 
