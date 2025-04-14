@@ -33,6 +33,7 @@ class IBLGoogleOAuth2(GoogleOAuth2):
 
         if not response.get("email"):
             log.error("No email provided in Google response")
+            raise PermissionDenied("Email is required for authentication")
 
         # Get basic details from response
         email = response.get("email", "")
@@ -40,6 +41,7 @@ class IBLGoogleOAuth2(GoogleOAuth2):
         # Check if user creation is disabled and if the user exists - do this BEFORE processing other details
         if getattr(settings, "SOCIAL_AUTH_DISABLE_USER_CREATION", False):
             log.info("SOCIAL_AUTH_DISABLE_USER_CREATION setting is: True")
+
             # Check if user exists by email
             user_exists = User.objects.filter(email=email).exists() if email else False
 
@@ -59,17 +61,18 @@ class IBLGoogleOAuth2(GoogleOAuth2):
                 else False
             )
 
-            if not user_exists and not username_exists and not social_auth_exists:
+            if not (user_exists or username_exists or social_auth_exists):
                 log.error(
                     f"User creation disabled and no existing user found for Google login. "
-                    f"Email: {email}"
+                    f"Email: {email}, Username: {username}, Google ID: {google_id}"
                 )
                 raise PermissionDenied(
                     "User creation is disabled. Please contact support if you need access."
                 )
 
-            log.info("Found existing user match for Google login")
+            log.info(f"Found existing user match for Google login - Email: {email}")
 
+        # Only proceed with additional details if we haven't raised an exception
         name, given_name, family_name = (
             response.get("name", ""),
             response.get("given_name", ""),
@@ -87,7 +90,12 @@ class IBLGoogleOAuth2(GoogleOAuth2):
             last_name = last_name or user.last_name
         except User.DoesNotExist:
             log.info(f"No existing user found for email: {email}")
-            pass
+            # If we get here and user creation is disabled, something went wrong
+            if getattr(settings, "SOCIAL_AUTH_DISABLE_USER_CREATION", False):
+                log.error("Critical: User existence check inconsistency")
+                raise PermissionDenied(
+                    "An error occurred during authentication. Please contact support."
+                )
 
         user_details = {
             "username": email.split("@", 1)[0],  # Match default Google implementation
