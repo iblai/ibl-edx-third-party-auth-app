@@ -53,21 +53,29 @@ class IBLThirdPartyAuthConfig(AppConfig):
         try:
             # Import all relevant modules
             from common.djangoapps.third_party_auth import appleid
-            from social_core.backends import apple
+            from social_core.backends import apple, azuread, google
 
             log.info(f"Current AppleIdAuth class: {appleid.AppleIdAuth}")
             log.info(f"Current social_core AppleIdAuth class: {apple.AppleIdAuth}")
+            log.info(f"Current AzureADOAuth2 class: {azuread.AzureADOAuth2}")
+            log.info(f"Current GoogleOAuth2 class: {google.GoogleOAuth2}")
 
             from .patches.patch_apple_id import patch as patch_apple_id
+            from .patches.patch_azuread import patch as patch_azuread
+            from .patches.patch_google import patch as patch_google
             from .patches.patch_middleware import patch as patch_middleware
 
             # Apply patches
             patch_apple_id()
+            patch_azuread()
             patch_middleware()
+            patch_google()
 
             # Verify patches
             log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
             log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
+            log.info(f"After patching azuread.AzureADOAuth2: {azuread.AzureADOAuth2}")
+            log.info(f"After patching google.GoogleOAuth2: {google.GoogleOAuth2}")
 
             # We don't need to force reload the backend during app initialization
             # The backend will be loaded correctly when needed during requests

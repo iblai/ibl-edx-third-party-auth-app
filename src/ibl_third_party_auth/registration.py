@@ -71,7 +71,12 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     access_token=access_token,
                     algorithms=["RS256"],
                     issuer="https://accounts.google.com",
-                    options={"verify_sub": False, "verify_jti": False, "verify_at_hash": False, "verify_aud": False},
+                    options={
+                        "verify_sub": False,
+                        "verify_jti": False,
+                        "verify_at_hash": False,
+                        "verify_aud": False,
+                    },
                 )
             except Exception as e:
                 log.error(f"Error decoding token: {e}")
@@ -87,7 +92,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             audience = provider.get_audience(backend)
 
             if claims["aud"] not in audience:
-                log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {audience}")
+                log.error(
+                    f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {audience}"
+                )
                 return False
 
             return claims
@@ -125,11 +132,15 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
             claims = jwt.get_unverified_claims(access_token)
             if isinstance(self.setting("AUDIENCE"), list):
                 if claims["aud"] not in self.setting("AUDIENCE"):
-                    log.error(f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {self.setting('AUDIENCE')}")
+                    log.error(
+                        f"Error: Provided audience: {claims['aud']} is not in the list of valid audiences: {self.setting('AUDIENCE')}"
+                    )
                     return False
             else:
                 if claims["aud"] != self.setting("AUDIENCE"):
-                    log.error(f"Error: Provided audience: {claims['aud']} is not the valid audience: {self.setting('AUDIENCE')}")
+                    log.error(
+                        f"Error: Provided audience: {claims['aud']} is not the valid audience: {self.setting('AUDIENCE')}"
+                    )
                     return False
             if claims["exp"] < time.time():
                 log.error("Error: Token has expired")
@@ -196,7 +207,9 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                decoded_data = self.verify_google_jwt_token(id_token, access_token, backend)
+                decoded_data = self.verify_google_jwt_token(
+                    id_token, access_token, backend
+                )
                 if not decoded_data:
                     return Response(
                         {"error": "id_token could not be verified"},
@@ -227,6 +240,7 @@ class IblUserManagementView(APIView, IBLAppleIdAuth):
 
     def create_user_account(self, request, data={}, backend="apple-id"):
         import re
+
         if backend == "apple-id":
             params = request.data
             email = params.get("email")
