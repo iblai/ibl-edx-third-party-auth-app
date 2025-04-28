@@ -30,9 +30,30 @@ class UserUtils:
         Raises:
             PermissionDenied: If user creation is disabled and user doesn't exist
         """
+        # First check if user already exists
+        existing_user = (
+            self.user_model.objects.filter(username=username).first()
+            or self.user_model.objects.filter(email=email).first()
+        )
+
+        if existing_user:
+            log.info(f"User already exists with username {username} or email {email}")
+            return False
+
+        # If user doesn't exist and creation is disabled, raise PermissionDenied
+        if getattr(settings, "SOCIAL_AUTH_DISABLE_USER_CREATION", False):
+            log.error(
+                f"User creation disabled. Cannot create user with username {username}"
+            )
+            raise PermissionDenied(
+                "User creation is currently disabled. Please contact support if you need access."
+            )
+
+        # Proceed with user creation since it's allowed
         user, created = self.user_model.objects.get_or_create(
             username=username, email=email, first_name=first_name, last_name=last_name
         )
+
         if created:
             user = retrieve_user(username)
             if first_name and last_name:

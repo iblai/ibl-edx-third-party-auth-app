@@ -52,9 +52,11 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
 
         # Check if the exception has the 'response' attribute
         if hasattr(exception, "response"):
-            log.info(f"exception.response.content={exception.response.content}")
-        else:
-            log.info("Exception does not have a 'response' attribute.")
+            log.debug(
+                "Exception response content",
+                extra={"content": str(exception.response.content)},
+            )
+
         referer_url = request.META.get("HTTP_REFERER", "")
 
         if (
