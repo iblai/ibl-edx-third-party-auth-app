@@ -87,9 +87,7 @@ class DMTokenView(OAuthLibMixin, View):
             access_token = json.loads(body).get("access_token")
             token = get_access_token_model().objects.get(token=access_token)
             try:
-                log.info(token.user.email)
-                log.info(token.user.username)
-                log.info(token.user.id)
+                log.info(f"{token.user.username} ({token.user.email}) is authorized to get DM token.")
                 response = manager_api_request(
                     "POST",
                     MANAGER_TOKEN_ENDPOINT_PATH,
@@ -113,12 +111,13 @@ class DMTokenView(OAuthLibMixin, View):
                 data = None
             if data and not data.get("token"):
                 data = None
+                log.exception("Got DM auth data but no token specifically")
             if not data:
                 return HttpResponse("404 Not Found", status=404)
             expires_in = None
             if data.get("expiry"):
                 expiry = self.parse_iso8601_to_utc(data["expiry"])
-                expires_in = (expiry - timezone.now()).total_seconds()
+                expires_in = int((expiry - timezone.now()).total_seconds())
 
             http_resp_data = {
                 "access_token": data["token"],
@@ -150,7 +149,6 @@ def oauth_dynamic_client_registration(request):
     client = get_application_model().objects.create(
         user_id=user.id,
         redirect_uris=" ".join(client_metadata.get("redirect_uris", [])),
-        # post_logout_redirect_uris="",
         authorization_grant_type=client_metadata.get(
             "grant_types", ["authorization_code"]
         )[0].replace("_", "-"),
