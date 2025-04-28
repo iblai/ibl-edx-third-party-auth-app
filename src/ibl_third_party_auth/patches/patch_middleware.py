@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Optional
 
 import six.moves.urllib.parse
 from common.djangoapps.student.helpers import get_next_url_for_login_page
@@ -17,24 +18,38 @@ log = logging.getLogger(__name__)
 class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
     """Custom middleware that handles conditional redirection."""
 
-    def get_redirect_uri(self, request, exception):
+    def get_redirect_uri(self, request: Any, exception: Exception) -> str:
+        """Get the redirect URI for the exception."""
+        log.debug(
+            "Getting redirect URI for exception",
+            extra={"exception_type": type(exception).__name__},
+        )
+
         # Fall back to django settings's SOCIAL_AUTH_LOGIN_ERROR_URL.
         redirect_uri = super().get_redirect_uri(request, exception)
 
-        # Safe because it's already been validated by
-        # pipeline.parse_query_params. If that pipeline step ever moves later
-        # in the pipeline stack, we'd need to validate this value because it
-        # would be an injection point for attacker data.
+        # Safe because it's already been validated by pipeline.parse_query_params
         auth_entry = request.session.get(pipeline.AUTH_ENTRY_KEY)
+        log.debug("Auth entry from session", extra={"auth_entry": auth_entry})
 
         # Check if we have an auth entry key we can use instead
         if auth_entry and auth_entry in pipeline.AUTH_DISPATCH_URLS:
             redirect_uri = pipeline.AUTH_DISPATCH_URLS[auth_entry]
+            log.debug("Using auth dispatch URL", extra={"redirect_uri": redirect_uri})
+
         return redirect_uri
 
-    def process_exception(self, request, exception):
+    def process_exception(self, request: Any, exception: Exception) -> Optional[Any]:
         """Handles specific exception raised by Python Social Auth eg HTTPError."""
-        log.exception(exception)
+        log.exception(
+            "Processing social auth exception",
+            extra={
+                "exception_type": type(exception).__name__,
+                "referer": request.META.get("HTTP_REFERER", ""),
+                "has_response": hasattr(exception, "response"),
+            },
+        )
+
         # Check if the exception has the 'response' attribute
         if hasattr(exception, "response"):
             log.info(f"exception.response.content={exception.response.content}")
@@ -49,6 +64,13 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
         ):
             referer_url = six.moves.urllib.parse.urlparse(referer_url).path
             if referer_url == reverse("signin_user"):
+                log.warning(
+                    "502 error on signin page",
+                    extra={
+                        "referer_url": referer_url,
+                        "status_code": exception.response.status_code,
+                    },
+                )
                 messages.error(
                     request,
                     _("Unable to connect with the external provider, please try again"),
@@ -56,8 +78,16 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
                 )
                 redirect_url = get_next_url_for_login_page(request)
                 return redirect("/login?next=" + redirect_url)
+
         return super().process_exception(request, exception)
 
 
 def patch():
-    middleware.ExceptionMiddleware = IBLExceptionMiddleware
+    """Patch the middleware with our implementation."""
+    log.info("Starting middleware patch application")
+    try:
+        middleware.ExceptionMiddleware = IBLExceptionMiddleware
+        log.info("Successfully patched ExceptionMiddleware")
+    except Exception as e:
+        log.exception("Failed to apply middleware patch", extra={"error": str(e)})
+        raise

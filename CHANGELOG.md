@@ -1,5 +1,26 @@
 # ChangeLog
 
+## 2.1.0
+### Added
+- Add `SOCIAL_AUTH_DISABLE_USER_CREATION` flag to control user creation during SSO:
+  - Implement user creation control in Apple ID authentication flow
+  - Add comprehensive user existence verification:
+    - Check by email address
+    - Check by username (configurable via EMAIL_AS_USERNAME setting)
+    - Check by social auth provider UID
+  - Add detailed logging for authentication attempts:
+    - Log user verification checks
+    - Log successful matches
+    - Log creation attempts when disabled
+  - Implement clear error handling:
+    - Raise PermissionDenied with informative messages
+    - Guide users to contact support when needed
+  - Maintain backward compatibility:
+    - Allow existing users to continue logging in
+    - Preserve all authentication paths for existing users
+  - Update platform linking to respect user creation setting
+  - Add documentation for the new setting and its usage
+
 ## 2.0.9
 - Enhance Apple ID user detail retrieval:
   - Add `get_user_fullname` method to fetch user details by email

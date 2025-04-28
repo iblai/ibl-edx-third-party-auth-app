@@ -75,6 +75,7 @@ import json
 import logging
 import time
 import uuid
+from typing import Any, Dict, List, Optional, Union
 
 import jwt
 from common.djangoapps.third_party_auth import appleid
@@ -82,7 +83,7 @@ from common.djangoapps.third_party_auth.appleid import AppleIdAuth
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from jwt.algorithms import RSAAlgorithm
 from jwt.exceptions import PyJWTError
 from social_core.exceptions import AuthFailed, AuthStateMissing
@@ -91,16 +92,16 @@ from social_django.models import UserSocialAuth
 log = logging.getLogger(__name__)
 
 
-def verify_redis_cache():
+def verify_redis_cache() -> bool:
     """Verify that Django's cache backend is Redis."""
-    from django.conf import settings
-
     cache_backend = settings.CACHES.get("default", {}).get("BACKEND", "")
     if cache_backend == "django_redis.cache.RedisCache":
         log.info("Using Redis cache backend")
         return True
     else:
-        log.warning(f"Cache backend is not Redis (found: {cache_backend})")
+        log.warning(
+            "Cache backend is not Redis", extra={"cache_backend": cache_backend}
+        )
         return False
 
 
@@ -121,35 +122,46 @@ class IBLAppleIdAuth(AppleIdAuth):
     TOKEN_AUDIENCE = "https://appleid.apple.com"
     TOKEN_TTL_SEC = 6 * 30 * 24 * 60 * 60
 
-    def __init__(self, *args, **kwargs):
-        log.info("Starting Apple ID authentication flow")
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        log.info("Initializing Apple ID authentication")
         super().__init__(*args, **kwargs)
-        # Verify Redis cache on initialization
         verify_redis_cache()
 
-    def auth_complete(self, *args, **kwargs):
+    def auth_complete(self, *args: Any, **kwargs: Any) -> Any:
         """Complete the auth process."""
-        log.info("IBLAppleIdAuth.auth_complete called")
+        log.info("Starting auth completion process")
         try:
-            log.debug(f"Auth complete args: {args}")
-            log.debug(f"Auth complete kwargs: {kwargs}")
+            log.debug(
+                "Auth completion parameters",
+                extra={"args_length": len(args), "kwargs_keys": list(kwargs.keys())},
+            )
 
             response = super().auth_complete(*args, **kwargs)
-            log.info("Auth complete process successful")
+            log.info("Auth completion successful")
             return response
         except Exception as e:
-            log.error(f"Auth complete process failed: {str(e)}")
+            log.error(
+                "Auth completion failed",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
+            )
             if hasattr(e, "response"):
-                log.error(f"Response status: {e.response.status_code}")
-                log.error(f"Response content: {e.response.content}")
+                log.error(
+                    "Auth response details",
+                    extra={
+                        "status_code": e.response.status_code,
+                        "content": str(e.response.content),
+                    },
+                )
             raise
 
-    def auth_params(self, state=None, *args, **kwargs):
+    def auth_params(
+        self, state: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> Dict[str, Any]:
         """
         Apple requires to set `response_mode` to `form_post` if `scope`
         parameter is passed.
         """
-        log.info("Generating auth params")
+        log.info("Generating auth parameters")
         params = super().auth_params(state=state, *args, **kwargs)
 
         if self.RESPONSE_MODE:
@@ -159,9 +171,8 @@ class IBLAppleIdAuth(AppleIdAuth):
 
         # Store state in both cache and session
         if state:
-            # Only show first 8 chars of state
             state_preview = f"{state[:8]}..." if state else None
-            log.info(f"Storing state in auth_params: {state_preview}")
+            log.info("Storing auth state", extra={"state_preview": state_preview})
             try:
                 session_key = self.strategy.session.session_key
                 if not session_key:
@@ -172,28 +183,35 @@ class IBLAppleIdAuth(AppleIdAuth):
                 cache.set(cache_key, state, timeout=300)
                 self.strategy.session["apple_auth_state"] = state
 
-                # Verify storage (using masked state value)
+                # Verify storage
                 stored_cache_state = cache.get(cache_key)
                 stored_session_state = self.strategy.session.get("apple_auth_state")
-                log.info(f"State stored in cache: {state_preview}")
-                log.info(f"State stored in session: {state_preview}")
+                log.debug(
+                    "State storage verification",
+                    extra={
+                        "cache_state_exists": bool(stored_cache_state),
+                        "session_state_exists": bool(stored_session_state),
+                    },
+                )
             except Exception as e:
                 log.error(
-                    f"Error storing state in auth_params: {str(e)}", exc_info=True
+                    "Failed to store auth state",
+                    extra={"error_type": type(e).__name__, "error_message": str(e)},
                 )
 
-        log.debug(f"Auth params: {params}")
+        log.debug(
+            "Generated auth parameters", extra={"params_keys": list(params.keys())}
+        )
         return params
 
-    def get_private_key(self):
-        """
-        Return contents of the private key file. Override this method to provide
-        secret key from another source if needed.
-        """
+    def get_private_key(self) -> str:
+        """Return contents of the private key file."""
+        log.debug("Retrieving private key")
         return self.setting("SECRET")
 
-    def generate_client_secret(self):
+    def generate_client_secret(self) -> str:
         """Generate a client secret for Apple ID authentication."""
+        log.info("Generating client secret")
         now = int(time.time())
         client_id = self.setting("CLIENT")
         team_id = self.setting("TEAM")
@@ -203,9 +221,6 @@ class IBLAppleIdAuth(AppleIdAuth):
             else ""
         )
         private_key = self.get_private_key()
-
-        log.info("Generating client secret for Apple ID authentication")
-        # Removed logging of sensitive data (client_id, team_id, key_id)
 
         headers = {"kid": key_id}
         payload = {
@@ -223,291 +238,247 @@ class IBLAppleIdAuth(AppleIdAuth):
             log.info("Client secret generated successfully")
             return token
         except Exception as e:
-            log.error("Failed to generate client secret")
+            log.error(
+                "Failed to generate client secret",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
+            )
             raise
 
-    def get_apple_jwk(self, kid=None):
-        """
-        Return requested Apple public key or all available.
-        """
+    def get_apple_jwk(self, kid: Optional[str] = None) -> Union[str, List[str]]:
+        """Return requested Apple public key or all available."""
+        log.info("Retrieving Apple JWK", extra={"kid": kid})
         keys = self.get_json(url=self.JWK_URL).get("keys")
 
         if not isinstance(keys, list) or not keys:
+            log.error("Invalid JWK response", extra={"keys_type": type(keys)})
             raise AuthFailed(self, "Invalid jwk response")
 
         if kid:
-            return json.dumps([key for key in keys if key["kid"] == kid][0])
+            matching_keys = [key for key in keys if key["kid"] == kid]
+            if not matching_keys:
+                log.error("No matching JWK found", extra={"kid": kid})
+                raise AuthFailed(self, f"No matching key found for kid: {kid}")
+            return json.dumps(matching_keys[0])
         else:
             return (json.dumps(key) for key in keys)
 
-    def decode_id_token(self, id_token):
-        """
-        Decode and validate JWT token from apple and return payload including
-        user data.
-        """
+    def decode_id_token(self, id_token: str) -> Dict[str, Any]:
+        """Decode and validate JWT token from apple and return payload."""
+        log.info("Decoding ID token")
         if not id_token:
+            log.error("Missing ID token")
             raise AuthFailed(self, "Missing id_token parameter")
 
         try:
-            kid = jwt.get_unverified_header(id_token).get("kid")
-            log.info(f"Decoding id_token with kid: {kid}")
-            public_key = RSAAlgorithm.from_jwk(self.get_apple_jwk(kid))
-            decoded = jwt.decode(
+            header = jwt.get_unverified_header(id_token)
+            log.debug("Retrieved token header", extra={"header": header})
+
+            if "kid" not in header:
+                log.error("Missing kid in token header")
+                raise AuthFailed(self, "Invalid id_token header (missing kid)")
+
+            apple_jwk = self.get_apple_jwk(header["kid"])
+            key = RSAAlgorithm.from_jwk(apple_jwk)
+
+            audience = self.setting("AUDIENCE", [self.setting("CLIENT")])
+            if not isinstance(audience, list):
+                audience = [audience]
+
+            log.debug("Decoding token with audience", extra={"audience": audience})
+
+            return jwt.decode(
                 id_token,
-                key=public_key,
-                audience=self.get_audience(),
+                key=key,
+                audience=audience,
                 algorithms=["RS256"],
             )
-            log.info("id_token decoded successfully")
-            return decoded
         except PyJWTError as e:
-            log.error(f"Token validation failed: {str(e)}")
-            raise AuthFailed(self, "Token validation failed")
+            log.error(
+                "Failed to decode ID token",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
+            )
+            raise AuthFailed(self, str(e))
 
-    def get_user_fullname(self, email):
-        log.info(f"Checking user detail for email: {email}")
+    def get_user_fullname(self, email: str) -> Dict[str, str]:
+        """Get user's full name from email."""
+        log.info("Retrieving user full name", extra={"email": email})
         try:
-            # Check if the user exists
             user = User.objects.get(email=email)
-            # If exists, return first name and last name
-            log.info(
-                f"User detail found for email: {email}, using: {user.first_name} {user.last_name}"
+            log.debug(
+                "Found user for full name",
+                extra={
+                    "email": email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                },
             )
-            return user.first_name, user.last_name
+            return {
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            }
         except ObjectDoesNotExist:
-            # User does not exist
-            log.info(f"No user detail found for email: {email}")
-            return "", ""
+            log.info("No user found for full name", extra={"email": email})
+            return {"first_name": "", "last_name": ""}
 
-    def get_user_by_social_uid(self, uid, provider="apple-id"):
-        """
-        Fetch the Open edX user associated with a given social auth UID.
-
-        Args:
-            provider (str): The name of the social authentication provider (e.g., 'apple', 'google-oauth2').
-            uid (str): The UID provided by the social auth provider.
-
-        Returns:
-            dict: A dictionary with user details if found, otherwise None.
-        """
-        log.info(f"Checking user detail for apple_id: {uid}")
-        try:
-            # Get the social auth entry
-            social_auth = UserSocialAuth.objects.get(provider=provider, uid=uid)
-
-            # Retrieve the associated user
-            user = social_auth.user
-
-            # Prepare user details to return
-            return user.first_name, user.last_name
-
-        except UserSocialAuth.DoesNotExist:
-            log.info(f"No user detail found for apple_id: {uid}")
-            return "", ""
-
-    def get_user_details(self, response):
-        """Get user details from the response."""
-        name = response.get("name") or {}
-        email = response.get("email", "")
-        if not email:
-            log.error("No email provided in Apple ID response")
-
-        # Log successful user detail retrieval without exposing data
-        log.info("Retrieved user details from Apple ID response")
-        if email:
-            log.info("Email address present in response")
-        apple_id = response.get(self.ID_KEY, "")
-        # Add call to check if user detail exists
-        log.info(f"Checking user detail for email: {email}")
-        get_first_name, get_last_name = self.get_user_fullname(email)
-
-        if not get_first_name and not get_last_name:
-            log.info(
-                f"No user detail found for email: {email}, checking by apple_id: {apple_id}"
-            )
-            get_first_name, get_last_name = self.get_user_by_social_uid(apple_id)
-
-        get_fullname = ""
-        if get_first_name or get_last_name:
-            log.info(
-                f"User detail found for email: {email}, using: {get_first_name} {get_last_name}"
-            )
-            get_fullname = f"{get_first_name} {get_last_name}".strip()
-        # Rest of the method remains the same
-        fullname, first_name, last_name = self.get_user_names(
-            fullname=get_fullname or str(email).split("@")[0],
-            first_name=name.get("firstName", get_first_name),
-            last_name=name.get("lastName", get_last_name),
+    def get_user_by_social_uid(
+        self, uid: str, provider: str = "apple-id"
+    ) -> Optional[User]:
+        """Get user by social auth UID."""
+        log.info(
+            "Retrieving user by social UID", extra={"uid": uid, "provider": provider}
         )
+        try:
+            social_auth = UserSocialAuth.objects.get(provider=provider, uid=uid)
+            log.debug(
+                "Found user by social UID",
+                extra={
+                    "uid": uid,
+                    "provider": provider,
+                    "user_id": social_auth.user.id,
+                },
+            )
+            return social_auth.user
+        except ObjectDoesNotExist:
+            log.info(
+                "No user found for social UID", extra={"uid": uid, "provider": provider}
+            )
+            return None
+
+    def get_user_details(self, response: Dict[str, Any]) -> Dict[str, str]:
+        """Return user details from Apple ID response."""
+        log.info("Processing user details from Apple ID response")
+        if not response.get("email"):
+            log.error("Missing email in Apple ID response")
+            raise AuthFailed(self, "Email is required for authentication")
+
+        email = response.get("email", "")
+        log.debug("Extracted email from response", extra={"email": email})
+
+        # Get user details from existing user if available
+        try:
+            user = User.objects.get(email=email)
+            log.info("Found existing user", extra={"email": email})
+            first_name = user.first_name
+            last_name = user.last_name
+        except ObjectDoesNotExist:
+            log.info("No existing user found", extra={"email": email})
+            first_name = ""
+            last_name = ""
 
         user_details = {
-            "fullname": fullname or str(email).split("@")[0],
-            "first_name": first_name or str(email).split("@")[0],
-            "last_name": last_name or str(email).split("@")[0],
+            "username": email.split("@", 1)[0],
             "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
         }
-        if email and self.setting("EMAIL_AS_USERNAME"):
-            user_details["username"] = email
-        if apple_id and not self.setting("EMAIL_AS_USERNAME"):
-            user_details["username"] = apple_id
-
+        log.debug("Final user details", extra={"user_details": user_details})
         return user_details
 
-    def get_and_store_state(self, request):
-        """Generate and store state parameter."""
-        log.info("Generating and storing state parameter")
-
+    def get_and_store_state(self, request: Any) -> str:
+        """Get and store state for Apple ID authentication."""
+        log.info("Getting and storing state")
         state = str(uuid.uuid4())
         session_key = request.session.session_key
         if not session_key:
             request.session.create()
             session_key = request.session.session_key
 
-        log.info(f"Generated state: {state}")
+        cache_key = f"apple_auth_state:{session_key}"
+        cache.set(cache_key, state, timeout=300)
+        request.session["apple_auth_state"] = state
 
-        try:
-            if not verify_redis_cache():
-                log.warning("Falling back to session-only storage")
-                request.session["apple_auth_state"] = state
-                return state
+        log.debug(
+            "State stored",
+            extra={"state_preview": f"{state[:8]}...", "session_key": session_key},
+        )
+        return state
 
-            # Store state using Django's cache framework
-            cache_key = f"apple_auth_state:{session_key}"
-            cache.set(cache_key, state, timeout=300)  # 5 minutes timeout
+    def validate_state(self) -> None:
+        """Validate state for Apple ID authentication."""
+        log.info("Validating state")
+        state = self.strategy.session.get("apple_auth_state")
+        if not state:
+            log.error("Missing state in session")
+            raise AuthStateMissing(self)
 
-            # Also store in session for redundancy
-            request.session["apple_auth_state"] = state
+        session_key = self.strategy.session.session_key
+        cache_key = f"apple_auth_state:{session_key}"
+        cached_state = cache.get(cache_key)
 
-            # Verify storage
-            stored_cache_state = cache.get(cache_key)
-            stored_session_state = request.session.get("apple_auth_state")
+        if not cached_state:
+            log.error("Missing state in cache")
+            raise AuthStateMissing(self)
 
-            log.info(f"State stored in cache: {stored_cache_state}")
-            log.info(f"State stored in session: {stored_session_state}")
+        if state != cached_state:
+            log.error(
+                "State mismatch",
+                extra={
+                    "session_state": f"{state[:8]}...",
+                    "cache_state": f"{cached_state[:8]}...",
+                },
+            )
+            raise AuthStateMissing(self)
 
-            return state
-
-        except Exception as e:
-            log.error(f"Error storing state: {str(e)}", exc_info=True)
-            # Fallback to session-only storage
-            request.session["apple_auth_state"] = state
-            return state
-
-    def validate_state(self):
-        """Validate the state parameter."""
-        try:
-            log.info("Validating state")
-            received_state = self.get_request_state()
-            session_key = self.strategy.session.session_key
-
-            # Only log partial state for debugging
-            state_preview = received_state[:8] if received_state else None
-            log.info(f"Validating state starting with: {state_preview}...")
-
-            # Check if we're using Redis cache
-            using_redis = verify_redis_cache()
-
-            if using_redis:
-                # Try getting state from cache
-                cache_key = f"apple_auth_state:{session_key}"
-                stored_cache_state = cache.get(cache_key)
-                if stored_cache_state and stored_cache_state == received_state:
-                    log.info("State validated from cache")
-                    cache.delete(cache_key)
-                    return received_state
-
-            # Try session storage
-            stored_session_state = self.strategy.session.get("apple_auth_state")
-            if stored_session_state and stored_session_state == received_state:
-                log.info("State validated from session")
-                del self.strategy.session["apple_auth_state"]
-                return received_state
-
-            if not using_redis and not stored_session_state:
-                log.warning("No stored state found (session only)")
-            elif using_redis and not stored_cache_state and not stored_session_state:
-                log.warning("No stored state found (cache and session)")
-
-            if (
-                hasattr(settings, "SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION")
-                and settings.SOCIAL_AUTH_APPLE_ID_SKIP_STATE_VALIDATION
-            ):
-                log.warning("State validation bypassed per settings")
-                return received_state
-
-            log.info("State validated successfully")
-            return received_state
-
-        except Exception as e:
-            log.error("State validation failed")
-            raise
+        log.debug("State validation successful")
 
     @classmethod
-    def verify_patch(cls):
-        """Verify that this class is being used as the AppleIdAuth."""
-        from common.djangoapps.third_party_auth import appleid
-
-        current_class = appleid.AppleIdAuth
-        log.info(f"Current AppleIdAuth class: {current_class}")
-        return current_class == cls
-
-    def request_access_token(self, *args, **kwargs):
-        """Request the access token from Apple."""
+    def verify_patch(cls) -> None:
+        """Verify that the patch is applied correctly."""
+        log.info("Verifying Apple ID patch")
         try:
-            log.info("Requesting access token from Apple")
+            from social_core.backends import apple
+
+            if apple.AppleIdAuth != cls:
+                log.error("Apple ID patch verification failed")
+                raise RuntimeError("Apple ID patch verification failed")
+            log.info("Apple ID patch verified successfully")
+        except Exception as e:
+            log.error(
+                "Apple ID patch verification error",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
+            )
+            raise
+
+    def request_access_token(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        """Request access token from Apple ID."""
+        log.info("Requesting access token")
+        try:
             response = super().request_access_token(*args, **kwargs)
-            log.info("Access token received successfully")
+            log.info("Access token request successful")
             return response
         except Exception as e:
-            log.error("Failed to get access token")
-            raise
-
-    def get_json(self, *args, **kwargs):
-        """Override get_json to add logging."""
-        try:
-            log.info(
-                f"IBLAppleIdAuth.get_json called with url: {kwargs.get('url', args[0] if args else 'No URL')}"
+            log.error(
+                "Access token request failed",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
             )
-            log.debug(f"get_json args: {args}")
-            log.debug(f"get_json kwargs: {kwargs}")
-            return super().get_json(*args, **kwargs)
+            raise
+
+    def get_json(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        """Get JSON response from Apple ID."""
+        log.info("Requesting JSON from Apple ID")
+        try:
+            response = super().get_json(*args, **kwargs)
+            log.info("JSON request successful")
+            return response
         except Exception as e:
-            log.error(f"get_json failed: {str(e)}")
+            log.error(
+                "JSON request failed",
+                extra={"error_type": type(e).__name__, "error_message": str(e)},
+            )
             raise
 
 
-def patch():
+def patch() -> None:
     """Patch the AppleIdAuth class with our implementation."""
-    log.info("Applying IBLAppleIdAuth patch...")
+    log.info("Starting Apple ID patch application")
     try:
-        # Patch all possible import locations
-        from common.djangoapps.third_party_auth import appleid
         from social_core.backends import apple
 
-        log.info(f"Current AppleIdAuth class: {appleid.AppleIdAuth}")
-        log.info(f"Current social_core AppleIdAuth class: {apple.AppleIdAuth}")
+        log.debug("Current AppleIdAuth class", extra={"class": str(apple.AppleIdAuth)})
 
-        # Patch both locations
-        appleid.AppleIdAuth = IBLAppleIdAuth
         apple.AppleIdAuth = IBLAppleIdAuth
-
-        # Verify patches
-        log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
-        log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
-
-        # Add a hook to the request_access_token method to ensure our patch is used
-        from social_core.backends.oauth import BaseOAuth2
-
-        original_request_access_token = BaseOAuth2.request_access_token
-
-        def patched_request_access_token(self, *args, **kwargs):
-            log.info(f"request_access_token called on {self.__class__}")
-            if isinstance(self, IBLAppleIdAuth):
-                log.info("Using IBLAppleIdAuth implementation")
-            return original_request_access_token(self, *args, **kwargs)
-
-        BaseOAuth2.request_access_token = patched_request_access_token
+        log.info("Successfully patched AppleIdAuth class")
 
     except Exception as e:
-        log.error(f"Error during patching: {str(e)}", exc_info=True)
+        log.exception("Failed to apply Apple ID patch", extra={"error": str(e)})
         raise
