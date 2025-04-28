@@ -137,10 +137,9 @@ class DMTokenView(OAuthLibMixin, View):
 def oauth_dynamic_client_registration(request):
 
     user_model = get_user_model()
-    try:
-        user = user_model.objects.get(username="ibltokenmanager")
-    except user_model.DoesNotExist:
-        user = user_model.objects.create(username="ibltokenmanager", email=f"{uuid.uuid4().hex}@ibl.ai")
+    user, created = user_model.objects.get_or_create(username="ibltokenmanager", defaults={"email": f"{uuid.uuid4().hex}@ibl.ai"})
+    if created:
+        log.info("Created ibltokenmanager user")
     client_metadata = json.loads(request.body)
     client = get_application_model().objects.create(
         user_id=user.id,
