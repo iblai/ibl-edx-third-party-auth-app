@@ -4,6 +4,7 @@ from common.djangoapps.third_party_auth import models
 
 log = logging.getLogger(__name__)
 
+
 # IBL PATCH STARTS
 def provider_id(self):
     """Unique string key identifying this provider. Must be URL and css class friendly."""
@@ -16,4 +17,6 @@ def provider_id(self):
 def patch():
     models.OAuth2ProviderConfig.KEY_FIELDS = ("backend_name", "site_id")
     models.OAuth2ProviderConfig.provider_id = property(provider_id)
+
+
 # IBL PATCH ENDS

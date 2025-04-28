@@ -60,7 +60,7 @@ def get_enabled_by_backend_name(cls, backend_name):
         )
         for oauth2_backend_name, site in oauth2_backend_names:
             provider = OAuth2ProviderConfig.current(oauth2_backend_name, site)
-        # IBL PATCH ENDS
+            # IBL PATCH ENDS
             if (
                 provider.backend_name == backend_name
                 and provider.enabled_for_current_site

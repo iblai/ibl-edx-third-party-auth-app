@@ -14,21 +14,24 @@ def root(*args):
 
 USE_TZ = True
 
-INSTALLED_APPS = (
-    'ibl_third_party_auth',
-)
+INSTALLED_APPS = ("ibl_third_party_auth",)
+
 
 def plugin_settings(settings):  # pylint: disable=unused-argument
     """
     Defines ibl_third_party_auth-specific settings when app is used as a plugin to edx-platform.
     """
-    backends = getattr(settings, 'AUTHENTICATION_BACKENDS', None)
+    backends = getattr(settings, "AUTHENTICATION_BACKENDS", None)
     if backends:
-        settings.AUTHENTICATION_BACKENDS.insert(0, 'social_core.backends.google_openidconnect.GoogleOpenIdConnect')
+        settings.AUTHENTICATION_BACKENDS.insert(
+            0, "social_core.backends.google_openidconnect.GoogleOpenIdConnect"
+        )
     else:
-        settings.AUTHENTICATION_BACKENDS = ['social_core.backends.google_openidconnect.GoogleOpenIdConnect']
+        settings.AUTHENTICATION_BACKENDS = [
+            "social_core.backends.google_openidconnect.GoogleOpenIdConnect"
+        ]
 
     # Have to add to CMS's INSTALLED_APPS
-    tpa = 'common.djangoapps.third_party_auth'
-    if settings.ROOT_URLCONF.startswith('cms') and tpa not in settings.INSTALLED_APPS:
+    tpa = "common.djangoapps.third_party_auth"
+    if settings.ROOT_URLCONF.startswith("cms") and tpa not in settings.INSTALLED_APPS:
         settings.INSTALLED_APPS.append(tpa)

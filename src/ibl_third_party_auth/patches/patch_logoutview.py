@@ -58,6 +58,7 @@ def get_context_data(self, **kwargs):
     # IBL PATCH ENDS
     return context
 
+
 # IBL PATCH STARTS
 def _add_post_logout_redirect_uri(self, end_session_url):
     """Optionally add query string for post logout redirect
@@ -82,6 +83,8 @@ def _add_post_logout_redirect_uri(self, end_session_url):
     query_string = urlencode(redirect_uri)
     end_session_url += "?{}".format(query_string)
     return end_session_url
+
+
 # IBL PATCH ENDS
 
 

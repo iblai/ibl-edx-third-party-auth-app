@@ -154,9 +154,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 501
         assert "No or Multiple" in self._caplog.messages[-1]
 
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
-    )
+    @mock.patch("ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt")
     def test_validate_jwt_invalid_token_error_returns_400(self, mock_jwt_val):
         """If InvalidTokenError is raised it returns a 400"""
         mock_jwt_val.side_effect = InvalidTokenError("Bad things Mikey, bad things")
@@ -165,9 +163,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 400
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
-    )
+    @mock.patch("ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt")
     def test_validate_jwt_jwt_validation_error_returns_400(self, mock_jwt_val):
         """If JwtValidationError is raised it returns a 400"""
         mock_jwt_val.side_effect = JwtValidationError("Bad things Mikey, bad things")
@@ -176,9 +172,7 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 400
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
-    )
+    @mock.patch("ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt")
     def test_validate_jwt_any_other_exception_returns_501(self, mock_jwt_val):
         """If any other exception occurs in validate_jwt, return a 501"""
         mock_jwt_val.side_effect = ValueError("Bad things Mikey, bad things")
@@ -187,12 +181,8 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 501
         assert "Bad things Mikey" in self._caplog.messages[-1]
 
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout._get_user_from_sub"
-    )
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
-    )
+    @mock.patch("ibl_third_party_auth.backchannel_logout._get_user_from_sub")
+    @mock.patch("ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt")
     def test_no_social_auth_exists_returns_501(self, mock_jwt_val, mock_user_sub):
         """If UserSocialAuth.DoesNotExist raised, return 501"""
         mock_jwt_val.return_value = {"sub": "f:something:not_found@test.com"}
@@ -203,12 +193,8 @@ class TestBackchannelLogoutView(BaseTestCase):
         assert resp.status_code == 501
         assert "No UserSocialAuth" in self._caplog.messages[-1]
 
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout._get_user_from_sub"
-    )
-    @mock.patch(
-        "ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt"
-    )
+    @mock.patch("ibl_third_party_auth.backchannel_logout._get_user_from_sub")
+    @mock.patch("ibl_third_party_auth.backchannel_logout.jwt_validation.validate_jwt")
     def test_logout_of_sessions_succeeds_returns_200(self, mock_jwt_val, mock_user_sub):
         """If user has no active sessions, returns 200 and profile meta not changed"""
         mock_jwt_val.return_value = {"sub": "f:something:not_found@test.com"}

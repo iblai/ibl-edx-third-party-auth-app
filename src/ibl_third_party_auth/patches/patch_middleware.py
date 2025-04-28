@@ -36,7 +36,7 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
         """Handles specific exception raised by Python Social Auth eg HTTPError."""
         log.exception(exception)
         # Check if the exception has the 'response' attribute
-        if hasattr(exception, 'response'):
+        if hasattr(exception, "response"):
             log.info(f"exception.response.content={exception.response.content}")
         else:
             log.info("Exception does not have a 'response' attribute.")

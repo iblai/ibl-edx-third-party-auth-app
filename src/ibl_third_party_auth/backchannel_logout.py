@@ -1,17 +1,14 @@
 import logging
-from importlib import import_module
 import time
+from importlib import import_module
 
 import jwt
-
-from django.conf import settings
-from django.contrib.auth.signals import user_logged_out
-from django.contrib.auth.models import User
-from django.http import HttpResponse
-
-from social_django.models import UserSocialAuth
-
 from common.djangoapps.third_party_auth import provider
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.auth.signals import user_logged_out
+from django.http import HttpResponse
+from social_django.models import UserSocialAuth
 
 from . import jwt_validation
 
@@ -30,9 +27,10 @@ def _get_user_from_sub(sub, backend):
         django.contrib.auth.User: User with UserSocialAuth.uid = username
     """
     # NOTE: This sub format represents a federated user from keycloak
-    username = sub.split(':')[-1]
-    social_auth = UserSocialAuth.objects.select_related('user__profile').get(
-        uid=username, provider=backend)
+    username = sub.split(":")[-1]
+    social_auth = UserSocialAuth.objects.select_related("user__profile").get(
+        uid=username, provider=backend
+    )
     return social_auth.user
 
 
@@ -42,8 +40,8 @@ def _get_backchannel_logout_response(status):
     https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
     """
     response = HttpResponse(status=status)
-    response['Cache-Control'] = 'no-cache, no-store'
-    response['Pragma'] = 'no-cache'
+    response["Cache-Control"] = "no-cache, no-store"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -73,11 +71,13 @@ def _logout_of_sessions(user, request):
     """
     meta = user.profile.get_meta()
     # meta keys that contain session_id's
-    keys = ['session_id', 'cms_session_id']
+    keys = ["session_id", "cms_session_id"]
     sessions = {key: meta.get(key) for key in keys}
 
     store = SESSIONS_ENGINE.SessionStore()
-    session_exists = {key: store.exists(session_id) for key, session_id in sessions.items()}
+    session_exists = {
+        key: store.exists(session_id) for key, session_id in sessions.items()
+    }
     has_session = any(session_exists.values())
 
     # notify of logout - maybe not point though since audit log looks at
@@ -100,7 +100,9 @@ def _logout_of_sessions(user, request):
                 if still_exists:
                     log.info(
                         "Session %s still exists after %s attempts; sleeping 0.1",
-                        session_id, idx)
+                        session_id,
+                        idx,
+                    )
                     time.sleep(0.1)
                 else:
                     log.info("Session %s no longer found", session_id)
@@ -111,19 +113,21 @@ def _logout_of_sessions(user, request):
     profile.set_meta(meta)
     profile.save()
 
+
 def _get_current_provider(backend):
     """Return the provider for the current site"""
     providers = list(provider.Registry.get_enabled_by_backend_name(backend))
     if not providers or len(providers) > 1:
         raise ValueError(
-            "No or Multiple active providers found: {}".format(len(providers)))
+            "No or Multiple active providers found: {}".format(len(providers))
+        )
     oauth_provider = providers[0]
     return oauth_provider
 
 
 def back_channel_logout(request, backend):
     """Back Channel logout"""
-    token = request.POST.get('logout_token')
+    token = request.POST.get("logout_token")
     if not token:
         return _get_backchannel_logout_response(400)
 
@@ -144,10 +148,10 @@ def back_channel_logout(request, backend):
         return _get_backchannel_logout_response(501)
 
     try:
-        user = _get_user_from_sub(payload['sub'], backend)
+        user = _get_user_from_sub(payload["sub"], backend)
         log.info("Backchannel logout request received for user %s", user.id)
     except UserSocialAuth.DoesNotExist:
-        log.error("No UserSocialAuth.uid exists for sub %s", payload['sub'])
+        log.error("No UserSocialAuth.uid exists for sub %s", payload["sub"])
         return _get_backchannel_logout_response(501)
 
     _logout_of_sessions(user, request)

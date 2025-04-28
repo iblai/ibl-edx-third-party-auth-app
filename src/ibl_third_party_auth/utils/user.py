@@ -7,7 +7,8 @@ from ibl_user_management_api.utils.main import retrieve_user
 
 log = logging.getLogger(__name__)
 
-class UserUtils():
+
+class UserUtils:
     def __init__(self):
         self.user_model = get_user_model()
 
@@ -15,7 +16,9 @@ class UserUtils():
         """
         Create a new user
         """
-        user, created = self.user_model.objects.get_or_create(username=username, email=email, first_name=first_name, last_name=last_name)
+        user, created = self.user_model.objects.get_or_create(
+            username=username, email=email, first_name=first_name, last_name=last_name
+        )
         if created:
             user = retrieve_user(username)
             if first_name and last_name:
