@@ -85,7 +85,7 @@ class DMTokenView(OAuthLibMixin, View):
         url, headers, body, status = self.create_token_response(request)
         if status == 200:
             access_token = json.loads(body).get("access_token")
-            token = get_access_token_model().objects.get(token=access_token)
+            token = get_access_token_model().objects.select_related("user").get(token=access_token)
             try:
                 log.info(f"{token.user.username} ({token.user.email}) is authorized to get DM token.")
                 response = manager_api_request(
@@ -107,11 +107,11 @@ class DMTokenView(OAuthLibMixin, View):
 
                     data = None
             except Exception:
-                log.exception("Token proxy request error")
+                log.error("Token proxy request error")
                 data = None
             if data and not data.get("token"):
                 data = None
-                log.exception("Got DM auth data but no token specifically")
+                log.error("Got DM auth data but no token specifically")
             if not data:
                 return HttpResponse("404 Not Found", status=404)
             expires_in = None
