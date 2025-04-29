@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import uuid
+from venv import logger
 
 from django.contrib.auth import get_user_model
 from django.http.response import HttpResponse, JsonResponse
@@ -99,15 +100,17 @@ class DMTokenView(OAuthLibMixin, View):
                 except ValueError:
                     if response.ok:
                         # Only log when the response is expected to be valid
-                        log.exception(
+                        log.error(
                             "Non-JSON token proxy response: %s %s",
                             response.status_code,
                             response.text,
                         )
 
                     data = None
-            except Exception:
+            except Exception as e:
                 log.error("Token proxy request error")
+                raise
+
                 data = None
             if data and not data.get("token"):
                 data = None
