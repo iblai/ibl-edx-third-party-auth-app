@@ -86,9 +86,15 @@ class DMTokenView(OAuthLibMixin, View):
         url, headers, body, status = self.create_token_response(request)
         if status == 200:
             access_token = json.loads(body).get("access_token")
-            token = get_access_token_model().objects.select_related("user").get(token=access_token)
+            token = (
+                get_access_token_model()
+                .objects.select_related("user")
+                .get(token=access_token)
+            )
             try:
-                log.info(f"{token.user.username} ({token.user.email}) is authorized to get DM token.")
+                log.info(
+                    f"{token.user.username} ({token.user.email}) is authorized to get DM token."
+                )
                 response = manager_api_request(
                     "POST",
                     MANAGER_TOKEN_ENDPOINT_PATH,

@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -47,7 +48,6 @@ class TestDMOAuth:
         self.setup_dm_token_response = dm_token_resp
 
     def test_can_get_dm_token_from_token_endpoint(self):
-        # the only outgoing request from token view is to get the DM token from the proxy, so safely mocking any url
         self.setup_dm_token_response()
 
         grant = factories.GrantFactory()
@@ -76,7 +76,7 @@ class TestDMOAuth:
         redirect_uris = ["http://localhost:3000"]
         response = self.client.post(
             reverse("ibl_third_party_auth:ibl-oauth-dcr"),
-            data={"redirect_uris": redirect_uris},
+            data=json.dumps({"redirect_uris": redirect_uris}),
             content_type="application/json",
         )
         assert response.status_code == 200

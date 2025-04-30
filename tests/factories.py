@@ -1,27 +1,37 @@
-import factory
-import secrets
 import datetime
 import random
-from factory.django import DjangoModelFactory
-from django.conf import settings
-from common.djangoapps.student.tests.factories import UserFactory
-from django.utils import timezone
-from datetime import timedelta
+import secrets
 import uuid
-from oauth2_provider.models import get_grant_model, get_application_model, get_access_token_model
+from datetime import timedelta
+
+import factory
+from common.djangoapps.student.tests.factories import UserFactory
+from django.conf import settings
+from django.utils import timezone
+from factory.django import DjangoModelFactory
+from oauth2_provider.models import (
+    get_access_token_model,
+    get_application_model,
+    get_grant_model,
+)
+
 Application = get_application_model()
 AccessToken = get_access_token_model()
 Grant = get_grant_model()
 
+
 class DMTokenResponseFactory(factory.DictFactory):
     token = factory.LazyFunction(lambda: secrets.token_urlsafe(16))
-    expiry = factory.LazyFunction(lambda: (
-        datetime.datetime.now() + datetime.timedelta(hours=random.randint(1, 5))
-        ).isoformat())
-    
+    expiry = factory.LazyFunction(
+        lambda: (
+            datetime.datetime.now() + datetime.timedelta(hours=random.randint(1, 5))
+        ).isoformat()
+    )
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
-        model = settings.AUTH_USER_MODEL # Use the configured user model
+        model = settings.AUTH_USER_MODEL  # Use the configured user model
 
     username = factory.Sequence(lambda n: f"user_{n}")
     email = factory.LazyAttribute(lambda o: f"{o.username}@example.com")
@@ -39,14 +49,16 @@ class UserFactory(DjangoModelFactory):
         # Use a default password if none is provided
         password = extracted or "default_password"
         self.set_password(password)
-        self.save() # Save again after setting password
-    
+        self.save()  # Save again after setting password
+
+
 # --- Application Factory ---
 class ApplicationFactory(DjangoModelFactory):
     """
     Factory for oauth2_provider.models.Application.
     Creates a confidential client application allowing authorization code grant by default.
     """
+
     class Meta:
         model = Application
 
@@ -78,6 +90,7 @@ class AccessTokenFactory(DjangoModelFactory):
     Factory for oauth2_provider.models.AccessToken.
     Creates an access token associated with a user and application.
     """
+
     class Meta:
         model = AccessToken
 
@@ -93,14 +106,11 @@ class AccessTokenFactory(DjangoModelFactory):
     # Or use UUID for uniqueness:
     token = factory.LazyFunction(lambda: uuid.uuid4().hex)
 
-
     # Define the scope of the token (space-separated strings)
-    scope = "read write" # Adjust as needed for your application's scopes
+    scope = "read write"  # Adjust as needed for your application's scopes
 
     # Set an expiration date - typically slightly in the future
-    expires = factory.LazyFunction(
-        lambda: timezone.now() + timedelta(hours=1)
-    )
+    expires = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=1))
 
     # source_refresh_token = None # Optional: Link to a RefreshToken instance if needed
 
@@ -111,6 +121,7 @@ class GrantFactory(DjangoModelFactory):
     Factory for oauth2_provider.models.Grant.
     Represents an authorization code grant.
     """
+
     class Meta:
         model = Grant
 
@@ -119,10 +130,15 @@ class GrantFactory(DjangoModelFactory):
 
     # The authorization code - DOT usually generates this.
     # code = factory.Sequence(lambda n: f"auth_code_{n}")
-    code = factory.LazyFunction(lambda: uuid.uuid4().hex[:10]) # Example: Generate a short code
+    code = factory.LazyFunction(
+        lambda: uuid.uuid4().hex[:10]
+    )  # Example: Generate a short code
 
     expires = factory.LazyFunction(
-        lambda: timezone.now() + timedelta(minutes=10) # Auth codes usually have short expiry
+        lambda: timezone.now()
+        + timedelta(minutes=10)  # Auth codes usually have short expiry
     )
-    redirect_uri = factory.LazyAttribute(lambda o: o.application.redirect_uris.split()[0]) # Use first redirect URI from app
-    scope = "read" # Default scope for the grant
+    redirect_uri = factory.LazyAttribute(
+        lambda o: o.application.redirect_uris.split()[0]
+    )  # Use first redirect URI from app
+    scope = "read"  # Default scope for the grant
