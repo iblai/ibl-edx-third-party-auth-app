@@ -113,10 +113,8 @@ class DMTokenView(OAuthLibMixin, View):
                         )
 
                     data = None
-            except Exception as e:
+            except Exception:
                 log.error("Token proxy request error")
-                raise
-
                 data = None
             if data and not data.get("token"):
                 data = None
