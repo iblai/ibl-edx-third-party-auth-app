@@ -1,44 +1,66 @@
-from ibl_request_router.config import (
-    MANAGER_TOKEN_ENDPOINT_PATH,
-    MANAGER_BASE_API_URL,
-)
-from django.test import TestCase, Client
-from . import factories
-import requests_mock
+from unittest import mock
+
 import pytest
 from django.urls import reverse
-import logging
-from django.test import override_settings
-from unittest import mock
-logger = logging.getLogger(__name__)
+from ibl_request_router.config import MANAGER_BASE_API_URL, MANAGER_TOKEN_ENDPOINT_PATH
+from rest_framework.test import APIClient
+
+from . import factories
+
+MANAGER_URL = "http://manager.base.local"
+
 
 @pytest.fixture(autouse=True)
 def set_manager_url():
-     with mock.patch("ibl_request_router.api.manager.MANAGER_BASE_URL", 'http://manager.base.local') as m1:
-        with mock.patch("ibl_request_router.api.manager.MANAGER_MAX_TRIES", 3) as m2:
-         yield
-@pytest.mark.django_db
-class DMOAuthTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super(DMOAuthTest, cls).setUpClass()
-        cls.client = Client()
+    with mock.patch("ibl_request_router.api.manager.MANAGER_BASE_URL", MANAGER_URL):
+        with mock.patch(
+            "ibl_request_router.api.manager.MANAGER_BASE_API_URL",
+            f"{MANAGER_URL}/api",
+        ):
+            yield
 
-    @requests_mock.Mocker()
-    def test_can_get_dm_token_from_token_endpoint(self, m):
+
+@pytest.fixture
+def dm_token_resp(requests_mock):
+    """Configure a DM token response"""
+
+    def _inner(json_data=None, status_code=200, exc=None):
+        data = (
+            {} if json_data == {} else json_data or factories.DMTokenResponseFactory()
+        )
+        kwargs = {"exc": exc} if exc else {"json": data, "status_code": status_code}
+        requests_mock.post(
+            "{}/{}".format(
+                MANAGER_BASE_API_URL, MANAGER_TOKEN_ENDPOINT_PATH.lstrip("/")
+            ),
+            **kwargs,
+        )
+
+    return _inner
+
+
+@pytest.mark.django_db
+class TestDMOAuth:
+    @pytest.fixture(autouse=True)
+    def setup(self, dm_token_resp):
+        self.client = APIClient()
+        self.dm_token_resp = dm_token_resp
+
+    def test_can_get_dm_token_from_token_endpoint(self):
         # the only outgoing request from token view is to get the DM token from the proxy, so safely mocking any url
-        m.post("{}/{}".format(MANAGER_BASE_API_URL, MANAGER_TOKEN_ENDPOINT_PATH.lstrip('/')), json=factories.DMTokenResponseFactory(),)
-        m.post(requests_mock.ANY, json=factories.DMTokenResponseFactory(),)
+        self.dm_token_resp()
 
         grant = factories.GrantFactory()
         post_data = {
-            'grant_type': 'authorization_code',
-            'code': grant.code,
-            'client_id': grant.application.client_id,
-            'client_secret': grant.application.client_secret, 
-            'redirect_uri': grant.redirect_uri,
+            "grant_type": "authorization_code",
+            "code": grant.code,
+            "client_id": grant.application.client_id,
+            "client_secret": grant.application.client_secret,
+            "redirect_uri": grant.redirect_uri,
         }
-        response = self.client.post(reverse("ibl_third_party_auth:ibl-oauth-dmtoken"), data=post_data)
+        response = self.client.post(
+            reverse("ibl_third_party_auth:ibl-oauth-dmtoken"), data=post_data
+        )
         resp_json = response.json()
         assert response.status_code == 200
         assert isinstance(resp_json["access_token"], str)
@@ -51,9 +73,9 @@ class DMOAuthTest(TestCase):
         assert bool(resp_json["scope"])
 
     def test_can_dynamic_register_application(self):
-        redirect_uris=  ["http://localhost:3000"]
+        redirect_uris = ["http://localhost:3000"]
         response = self.client.post(
-            reverse("ibl_third_party_auth:ibl-oauth-dcr"), 
+            reverse("ibl_third_party_auth:ibl-oauth-dcr"),
             data={"redirect_uris": redirect_uris},
             content_type="application/json",
         )
