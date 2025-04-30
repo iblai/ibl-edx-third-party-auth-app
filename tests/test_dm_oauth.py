@@ -44,11 +44,11 @@ class TestDMOAuth:
     @pytest.fixture(autouse=True)
     def setup(self, dm_token_resp):
         self.client = APIClient()
-        self.dm_token_resp = dm_token_resp
+        self.setup_dm_token_response = dm_token_resp
 
     def test_can_get_dm_token_from_token_endpoint(self):
         # the only outgoing request from token view is to get the DM token from the proxy, so safely mocking any url
-        self.dm_token_resp()
+        self.setup_dm_token_response()
 
         grant = factories.GrantFactory()
         post_data = {
