@@ -72,6 +72,40 @@ class TestDMOAuth:
         assert isinstance(resp_json["scope"], str)
         assert bool(resp_json["scope"])
 
+
+    def test_can_get_404_from_token_endpoint_with_wrong_code(self):
+        self.setup_dm_token_response()
+
+        grant = factories.GrantFactory()
+        post_data = {
+            "grant_type": "authorization_code",
+            "code": "abcdefg",
+            "client_id": grant.application.client_id,
+            "client_secret": grant.application.client_secret,
+            "redirect_uri": grant.redirect_uri,
+        }
+        response = self.client.post(
+            reverse("ibl_third_party_auth:ibl-oauth-dmtoken"), data=post_data
+        )
+
+        assert response.status_code == 404
+
+    def test_can_get_404_from_token_endpoint_when_proxy_request_fails(self):
+
+        grant = factories.GrantFactory()
+        post_data = {
+            "grant_type": "authorization_code",
+            "code": grant.code,
+            "client_id": grant.application.client_id,
+            "client_secret": grant.application.client_secret,
+            "redirect_uri": grant.redirect_uri,
+        }
+        response = self.client.post(
+            reverse("ibl_third_party_auth:ibl-oauth-dmtoken"), data=post_data
+        )
+
+        assert response.status_code == 404
+
     def test_can_dynamic_register_application(self):
         redirect_uris = ["http://localhost:3000"]
         response = self.client.post(
