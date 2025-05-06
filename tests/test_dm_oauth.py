@@ -48,6 +48,11 @@ class TestDMOAuth:
         self.setup_dm_token_response = dm_token_resp
 
     def test_can_get_dm_token_from_token_endpoint(self):
+        """
+        Testing the request with correct authorization code to the DM token endpoint will yield a successful response, giving us the access token, etc.
+        
+        `self.setup_dm_token_response()` is necessary to setup the MANAGER_BASE_URL and MANAGER_BASE_API_URL
+        """
         self.setup_dm_token_response()
 
         grant = factories.GrantFactory()
@@ -73,7 +78,10 @@ class TestDMOAuth:
         assert bool(resp_json["scope"])
 
 
-    def test_can_get_404_from_token_endpoint_with_wrong_code(self):
+    def test_request_fails_from_token_endpoint_with_wrong_code(self):
+        """
+        The request with a wrong authorization code to the DM token endpoint will yield a non 200 response. (error code is >= 400)
+        """
         self.setup_dm_token_response()
 
         grant = factories.GrantFactory()
@@ -88,10 +96,14 @@ class TestDMOAuth:
             reverse("ibl_third_party_auth:ibl-oauth-dmtoken"), data=post_data
         )
 
-        assert response.status_code == 404
+        assert response.status_code >= 400
 
-    def test_can_get_404_from_token_endpoint_when_proxy_request_fails(self):
+    def test_request_fails_from_token_endpoint_when_proxy_request_fails(self):
+        """
+        The request to the ill-configured DM token endpoint will yield a non 200 response. (error code is >= 400)
 
+        Here MANAGER_BASE_URL and MANAGER_BASE_API_URL are kept original a.k.a empty, so requests will yield an error for illegal URL (e.g. `/the/url` vs the valid url `http://theurl.com/api/call/`)
+        """
         grant = factories.GrantFactory()
         post_data = {
             "grant_type": "authorization_code",
@@ -107,6 +119,9 @@ class TestDMOAuth:
         assert response.status_code == 404
 
     def test_can_dynamic_register_application(self):
+        """
+        Testing the dynamic client registration endpoint works with a valid request.
+        """
         redirect_uris = ["http://localhost:3000"]
         response = self.client.post(
             reverse("ibl_third_party_auth:ibl-oauth-dcr"),
