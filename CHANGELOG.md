@@ -3,6 +3,7 @@
 ## 2.2.0
 ### Added
  - Add DM token endpoint to fetch a DM token with OAuth authorization code.
+ - Add support for dynamic client registration.
 
 ## 2.1.0
 ### Added
