@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 from common.djangoapps.third_party_auth.models import OAuth2ProviderConfig
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from social_django.models import UserSocialAuth
+
 from ibl_third_party_auth.management.commands.link_provider_users_to_platform import (
     Command,
 )
@@ -12,7 +14,6 @@ from ibl_third_party_auth.utils.provider_utils import (
     get_platform_key_from_provider,
     get_provider_config_by_backend,
 )
-from social_django.models import UserSocialAuth
 
 User = get_user_model()
 

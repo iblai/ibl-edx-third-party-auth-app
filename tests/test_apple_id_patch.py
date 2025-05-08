@@ -4,13 +4,14 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 from common.djangoapps import third_party_auth
+from jwt.exceptions import PyJWTError
+from social_core.exceptions import AuthFailed, AuthStateMissing
+
 from ibl_third_party_auth.patches.patch_apple_id import (
     IBLAppleIdAuth,
     patch,
     verify_redis_cache,
 )
-from jwt.exceptions import PyJWTError
-from social_core.exceptions import AuthFailed, AuthStateMissing
 
 
 @pytest.fixture
@@ -173,6 +174,7 @@ def test_decode_id_token_failure():
 def test_patch_is_applied():
     """Test that the patch is correctly applied to the AppleIdAuth class."""
     from common.djangoapps.third_party_auth import appleid
+
     from ibl_third_party_auth.patches.patch_apple_id import IBLAppleIdAuth, patch
 
     # Store original class

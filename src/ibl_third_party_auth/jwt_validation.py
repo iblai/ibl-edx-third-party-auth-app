@@ -1,8 +1,7 @@
-import time
 import logging
+import time
 
 import jwt
-
 from Cryptodome.PublicKey.RSA import importKey
 from social_django.models import UserSocialAuth
 
@@ -30,27 +29,27 @@ def validate_jwt(provider, token):
     """
 
     options = {
-        'require_exp': False,
-        'require_iat': True,
-        'verify_iat': True,
-        'verify_aud': True,
-        'verify_iss': True,
-        'verify_signature': True,
+        "require_exp": False,
+        "require_iat": True,
+        "verify_iat": True,
+        "verify_aud": True,
+        "verify_iss": True,
+        "verify_signature": True,
     }
-    public_key = _add_begin_end_key(provider.get_setting('PUBLIC_KEY'))
+    public_key = _add_begin_end_key(provider.get_setting("PUBLIC_KEY"))
     aud = provider.key
     payload = jwt.decode(
         token,
         key=public_key,
         verify=True,
         options=options,
-        issuer=provider.get_setting('ISS'),
+        issuer=provider.get_setting("ISS"),
         audience=aud,
-        algorithms=['RS256']
+        algorithms=["RS256"],
     )
     _check_nonce_not_present(payload)
     # jwt.decode doesn't validate awt slack, only that it's an int
-    _check_iat(payload['iat'])
+    _check_iat(payload["iat"])
     _check_jti(payload)
     _check_sub_sid(payload)
     _check_events_claim(payload)
@@ -63,10 +62,9 @@ def _perform_optional_checks(pub_key_str, provider, payload):
     """Optional checks against previously issued id_token"""
     try:
         # social_auth = UserSocialAuth.objects.get(uid=payload['sub'])
-        social_auth = UserSocialAuth.objects.get(user__username='common@user.com')
+        social_auth = UserSocialAuth.objects.get(user__username="common@user.com")
     except UserSocialAuth.DoesNotExist:
-        raise JwtValidationError(
-            'Unable to find Social Auth User: %s', payload['sub'])
+        raise JwtValidationError("Unable to find Social Auth User: %s", payload["sub"])
 
     # last_id_token = _check_signature(
     #     pub_key_str, social_auth.extra_data.get('id_token'))
@@ -88,7 +86,9 @@ def _check_iat(iat, slack=120):
     if (now - iat) > slack:
         raise JwtValidationError(
             "Token created too long in the past (%ss ago > %s); rejecting",
-            now - iat, slack)
+            now - iat,
+            slack,
+        )
 
 
 def _check_sub_sid(payload):
@@ -97,8 +97,10 @@ def _check_sub_sid(payload):
     Step 4. Verify that the Logout Token contains a sub Claim, a sid Claim,
         or both.
     """
-    if not 'sub' in payload and not 'sid' in payload:
-        raise JwtValidationError('Missing "sub" and "sid" from JWT. One must be present')
+    if not "sub" in payload and not "sid" in payload:
+        raise JwtValidationError(
+            'Missing "sub" and "sid" from JWT. One must be present'
+        )
 
 
 def _check_events_claim(payload):
@@ -108,23 +110,24 @@ def _check_events_claim(payload):
     is JSON object containing the member name
     http://schemas.openid.net/event/backchannel-logout.
     """
-    claim = 'http://schemas.openid.net/event/backchannel-logout'
-    events = payload.get('events', None)
+    claim = "http://schemas.openid.net/event/backchannel-logout"
+    events = payload.get("events", None)
 
     if events is None:
         raise JwtValidationError("Payload is missing 'events' claim")
 
     if not isinstance(events, dict):
         raise JwtValidationError(
-            "'events' claim must be a JSON object. Got {}", type(events))
+            "'events' claim must be a JSON object. Got {}", type(events)
+        )
 
     if claim not in events:
         raise JwtValidationError(
-            "JWT must contain {} claim, but it is missing".format(claim))
+            "JWT must contain {} claim, but it is missing".format(claim)
+        )
 
     if not isinstance(events[claim], dict):
-        raise JwtValidationError(
-            '{} claim must contain a json object'.format(claim))
+        raise JwtValidationError("{} claim must contain a json object".format(claim))
 
 
 def _check_nonce_not_present(payload):
@@ -132,9 +135,10 @@ def _check_nonce_not_present(payload):
 
     Step 6. Verify that the Logout Token does not contain a nonce Claim.
     """
-    if 'nonce' in payload:
+    if "nonce" in payload:
         raise JwtValidationError(
-            "Nonce claim found in payload, but should not be present")
+            "Nonce claim found in payload, but should not be present"
+        )
 
 
 def _check_jti(payload):
@@ -143,7 +147,7 @@ def _check_jti(payload):
     Step 7. Optionally verify that another Logout Token with the same jti value
     has not been recently received.
     """
-    log.debug('Checking of jti is optional; not currently checking')
+    log.debug("Checking of jti is optional; not currently checking")
 
 
 def _check_last_iss(last_id_token, payload):

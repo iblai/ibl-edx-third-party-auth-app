@@ -1,5 +1,9 @@
 # ChangeLog
 
+## 2.2.0
+### Added
+ - Add DM token endpoint to fetch a DM token with OAuth authorization code.
+
 ## 2.1.0
 ### Added
 - Add `SOCIAL_AUTH_DISABLE_USER_CREATION` flag to control user creation during SSO:

@@ -13,5 +13,6 @@ def patch():
     """
 
     from . import patch_apple_id, patch_middleware
+
     patch_apple_id.patch()
     patch_middleware.patch()

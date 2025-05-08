@@ -1,6 +1,6 @@
 import logging
-import jwt
 
+import jwt
 from social_core.backends.oauth import BaseOAuth2
 
 log = logging.getLogger(__name__)
@@ -65,28 +65,30 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
     and that there is no risk of user account hijacking by false account association.
     """
 
-    name = 'keycloak'
-    ID_KEY = 'email'
-    ACCESS_TOKEN_METHOD = 'POST'
+    name = "keycloak"
+    ID_KEY = "email"
+    ACCESS_TOKEN_METHOD = "POST"
 
     def authorization_url(self):
-        return self.setting('AUTHORIZATION_URL')
+        return self.setting("AUTHORIZATION_URL")
 
     def access_token_url(self):
-        return self.setting('ACCESS_TOKEN_URL')
+        return self.setting("ACCESS_TOKEN_URL")
 
     def audience(self):
-        return self.setting('KEY')
+        return self.setting("KEY")
 
     def algorithm(self):
-        return self.setting('ALGORITHM', default='RS256')
+        return self.setting("ALGORITHM", default="RS256")
 
     def public_key(self):
-        return '\n'.join([
-            '-----BEGIN PUBLIC KEY-----',
-            self.setting('PUBLIC_KEY'),
-            '-----END PUBLIC KEY-----',
-        ])
+        return "\n".join(
+            [
+                "-----BEGIN PUBLIC KEY-----",
+                self.setting("PUBLIC_KEY"),
+                "-----END PUBLIC KEY-----",
+            ]
+        )
 
     def user_data(self, access_token, *args, **kwargs):  # pylint: disable=unused-argument
         """Decode user data from the access_token
@@ -104,18 +106,16 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
         return payload
 
     def get_user_details(self, response):
-        """Map fields in user_data into Django User fields
-        """
+        """Map fields in user_data into Django User fields"""
         return {
-            'username': response.get('preferred_username'),
-            'email': response.get('email'),
-            'fullname': response.get('name'),
-            'first_name': response.get('given_name'),
-            'last_name': response.get('family_name'),
-            'sub': response.get('sub'),
+            "username": response.get("preferred_username"),
+            "email": response.get("email"),
+            "fullname": response.get("name"),
+            "first_name": response.get("given_name"),
+            "last_name": response.get("family_name"),
+            "sub": response.get("sub"),
         }
 
     def get_user_id(self, details, response):
-        """Get and associate Django User by the field indicated by ID_KEY
-        """
+        """Get and associate Django User by the field indicated by ID_KEY"""
         return details.get(self.ID_KEY)
