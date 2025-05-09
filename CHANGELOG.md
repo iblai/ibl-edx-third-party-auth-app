@@ -1,5 +1,10 @@
 # ChangeLog
 
+
+## 2.2.1
+### Updated
+Now the placeholder refresh token from DM token endpoint is a string instead of null.
+
 ## 2.2.0
 ### Added
  - Add DM token endpoint to fetch a DM token with OAuth authorization code.
