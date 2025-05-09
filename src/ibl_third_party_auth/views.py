@@ -130,7 +130,7 @@ class DMTokenView(OAuthLibMixin, View):
                 "access_token": data["token"],
                 "token_type": "Token",
                 "expires_in": expires_in,
-                "refresh_token": None,
+                "refresh_token": "tokennotavailable",
                 "scope": "read write",
             }
 
