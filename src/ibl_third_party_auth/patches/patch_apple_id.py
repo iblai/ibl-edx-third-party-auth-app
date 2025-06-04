@@ -468,6 +468,24 @@ class IBLAppleIdAuth(AppleIdAuth):
                 },
             )
 
+            # Log the actual request data being sent
+            request_data = {
+                "client_id": self.setting("CLIENT"),
+                "client_secret": self.generate_client_secret(),
+                "code": kwargs.get("code"),
+                "grant_type": "authorization_code",
+                "redirect_uri": self.get_redirect_uri(),
+            }
+
+            log.info(
+                "Token request data",
+                extra={
+                    "request_data": request_data,
+                    "url": self.ACCESS_TOKEN_URL,
+                    "method": self.ACCESS_TOKEN_METHOD,
+                },
+            )
+
             response = super().request_access_token(*args, **kwargs)
 
             # Log successful response
@@ -483,11 +501,19 @@ class IBLAppleIdAuth(AppleIdAuth):
                 "error_message": str(e),
             }
             if hasattr(e, "response"):
+                try:
+                    error_content = e.response.content.decode("utf-8")
+                except:
+                    error_content = str(e.response.content)
+
                 error_details.update(
                     {
                         "status_code": getattr(e.response, "status_code", None),
-                        "response_content": getattr(e.response, "content", None),
+                        "response_content": error_content,
                         "response_headers": dict(getattr(e.response, "headers", {})),
+                        "request_data": request_data
+                        if "request_data" in locals()
+                        else None,
                     }
                 )
             log.error("Access token request failed", extra=error_details)
