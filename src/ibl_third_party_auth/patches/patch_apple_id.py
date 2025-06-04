@@ -131,27 +131,40 @@ class IBLAppleIdAuth(AppleIdAuth):
         """Complete the auth process."""
         log.info("Starting auth completion process")
         try:
+            # Log auth completion parameters
             log.debug(
                 "Auth completion parameters",
-                extra={"args_length": len(args), "kwargs_keys": list(kwargs.keys())},
+                extra={
+                    "args_length": len(args),
+                    "kwargs_keys": list(kwargs.keys()),
+                    "state": kwargs.get("state"),
+                    "code": kwargs.get("code"),
+                },
             )
 
             response = super().auth_complete(*args, **kwargs)
-            log.info("Auth completion successful")
+
+            # Log successful completion
+            log.info(
+                "Auth completion successful",
+                extra={"response_type": type(response).__name__},
+            )
             return response
         except Exception as e:
-            log.error(
-                "Auth completion failed",
-                extra={"error_type": type(e).__name__, "error_message": str(e)},
-            )
+            # Enhanced error logging
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            }
             if hasattr(e, "response"):
-                log.error(
-                    "Auth response details",
-                    extra={
-                        "status_code": e.response.status_code,
-                        "content": str(e.response.content),
-                    },
+                error_details.update(
+                    {
+                        "status_code": getattr(e.response, "status_code", None),
+                        "response_content": getattr(e.response, "content", None),
+                        "response_headers": dict(getattr(e.response, "headers", {})),
+                    }
                 )
+            log.error("Auth completion failed", extra=error_details)
             raise
 
     def auth_params(
@@ -443,28 +456,81 @@ class IBLAppleIdAuth(AppleIdAuth):
         """Request access token from Apple ID."""
         log.info("Requesting access token")
         try:
+            # Log request parameters
+            log.debug(
+                "Access token request parameters",
+                extra={
+                    "args": str(args),
+                    "kwargs": str(kwargs),
+                    "client_id": self.setting("CLIENT"),
+                    "team_id": self.setting("TEAM"),
+                    "key_id": getattr(settings, "SOCIAL_AUTH_APPLE_ID_KEY", ""),
+                },
+            )
+
             response = super().request_access_token(*args, **kwargs)
-            log.info("Access token request successful")
+
+            # Log successful response
+            log.info(
+                "Access token request successful",
+                extra={"response_keys": list(response.keys()) if response else None},
+            )
             return response
         except Exception as e:
-            log.error(
-                "Access token request failed",
-                extra={"error_type": type(e).__name__, "error_message": str(e)},
-            )
+            # Enhanced error logging
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            }
+            if hasattr(e, "response"):
+                error_details.update(
+                    {
+                        "status_code": getattr(e.response, "status_code", None),
+                        "response_content": getattr(e.response, "content", None),
+                        "response_headers": dict(getattr(e.response, "headers", {})),
+                    }
+                )
+            log.error("Access token request failed", extra=error_details)
             raise
 
     def get_json(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """Get JSON response from Apple ID."""
         log.info("Requesting JSON from Apple ID")
         try:
+            # Log request details
+            log.debug(
+                "JSON request details",
+                extra={
+                    "url": args[0] if args else None,
+                    "method": kwargs.get("method", "GET"),
+                    "headers": kwargs.get("headers", {}),
+                    "data": kwargs.get("data", {}),
+                },
+            )
+
             response = super().get_json(*args, **kwargs)
-            log.info("JSON request successful")
+
+            # Log successful response
+            log.info(
+                "JSON request successful",
+                extra={"response_keys": list(response.keys()) if response else None},
+            )
             return response
         except Exception as e:
-            log.error(
-                "JSON request failed",
-                extra={"error_type": type(e).__name__, "error_message": str(e)},
-            )
+            # Enhanced error logging
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            }
+            if hasattr(e, "response"):
+                error_details.update(
+                    {
+                        "status_code": getattr(e.response, "status_code", None),
+                        "response_content": getattr(e.response, "content", None),
+                        "response_headers": dict(getattr(e.response, "headers", {})),
+                    }
+                )
+            log.error("JSON request failed", extra=error_details)
             raise
 
 
