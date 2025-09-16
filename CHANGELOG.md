@@ -1,6 +1,10 @@
 # ChangeLog
 
 
+## 2.2.2
+### Updated
+Now the dynamic registred clients support openid scope.
+
 ## 2.2.1
 ### Updated
 Now the placeholder refresh token from DM token endpoint is a string instead of null.
