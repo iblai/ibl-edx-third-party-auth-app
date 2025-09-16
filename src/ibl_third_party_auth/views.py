@@ -30,6 +30,7 @@ from oauth2_provider.views.mixins import OAuthLibMixin
 from oauthlib.oauth2 import Server as OAuth2Server
 
 from ibl_third_party_auth import backchannel_logout
+from openedx.core.djangoapps.oauth_dispatch.models import ApplicationAccess
 
 log = logging.getLogger(__name__)
 
@@ -162,6 +163,9 @@ def oauth_dynamic_client_registration(request):
         name=f"dynamic-registration-{uuid.uuid4().hex}",
         client_type=client_metadata.get("client_type", Application.CLIENT_PUBLIC),
     )
+    aa, _ = ApplicationAccess.objects.get_or_create(application=client)
+    aa.scopes = ["openid"]
+    aa.save()
     return JsonResponse(
         {
             "client_id": client.client_id,
