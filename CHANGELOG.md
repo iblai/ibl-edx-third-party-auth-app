@@ -1,6 +1,10 @@
 # ChangeLog
 
 
+## 2.2.3
+### Fixed
+- Fix oauth2_provider settings initialization order causing invalid_scope errors in multi-node deployments. Clear cached oauth2_settings in AppConfig.ready() so SCOPES includes 'user_id', 'profile', 'email' instead of just defaults.
+
 ## 2.2.2
 ### Updated
 Now the dynamic registred clients support openid scope.
