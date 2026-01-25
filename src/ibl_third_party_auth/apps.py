@@ -50,6 +50,33 @@ class IBLThirdPartyAuthConfig(AppConfig):
         """
         log.info("IBLThirdPartyAuthConfig.ready() called")
 
+        # Fix oauth2_provider settings initialization order issue
+        # In multi-node Open edX deployments, oauth2_settings.SCOPES can get cached
+        # in __dict__ before Django's OAUTH2_PROVIDER setting is fully loaded.
+        # This causes Studio SSO login to fail with invalid_scope errors because
+        # only default scopes {'read', 'write'} are available instead of the full
+        # set including 'user_id', 'profile', 'email'.
+        # We clear all cached attributes so they get re-read from Django settings.
+        try:
+            from oauth2_provider.settings import oauth2_settings
+
+            # Clear ALL cached attributes including SCOPES that may have been
+            # cached before Django settings were fully loaded
+            for attr in list(oauth2_settings.__dict__.keys()):
+                if attr.isupper() and attr not in ('DEFAULTS',):
+                    try:
+                        delattr(oauth2_settings, attr)
+                    except AttributeError:
+                        pass
+            oauth2_settings._cached_attrs.clear()
+            if hasattr(oauth2_settings, '_user_settings'):
+                delattr(oauth2_settings, '_user_settings')
+            log.info("Cleared oauth2_provider cached settings to fix scope initialization")
+        except ImportError:
+            log.debug("oauth2_provider not installed, skipping settings fix")
+        except Exception as e:
+            log.warning(f"Error clearing oauth2_provider settings cache: {e}")
+
         try:
             # Import all relevant modules
             from common.djangoapps.third_party_auth import appleid
