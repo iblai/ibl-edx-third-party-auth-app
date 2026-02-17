@@ -41,8 +41,19 @@ def auto_create_user(strategy, details, user=None, *args, **kwargs):
         log.info("auto_create_user: found existing user by email %s", email)
         return {"user": existing, "is_new": False}
 
+    # Build the full name from available details.  Apple's backend provides
+    # first_name/last_name but not fullname; other backends may provide fullname.
+    first_name = details.get("first_name", "")
+    last_name = details.get("last_name", "")
+    fullname = details.get("fullname") or " ".join(
+        part for part in (first_name, last_name) if part
+    ) or username
+
     # Create the user
-    user = User.objects.create_user(username=username, email=email)
+    user = User.objects.create_user(
+        username=username, email=email,
+        first_name=first_name, last_name=last_name,
+    )
     user.is_active = True
     user.save(update_fields=["is_active"])
 
@@ -50,7 +61,6 @@ def auto_create_user(strategy, details, user=None, *args, **kwargs):
     try:
         from common.djangoapps.student.models import UserProfile
 
-        fullname = details.get("fullname") or username
         UserProfile.objects.get_or_create(user=user, defaults={"name": fullname})
     except Exception:
         log.exception("auto_create_user: failed to create UserProfile for %s", username)
