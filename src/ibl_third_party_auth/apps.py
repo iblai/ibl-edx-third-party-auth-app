@@ -2,6 +2,7 @@
 App Configuration for ibl_third_party_auth
 """
 
+import functools
 import logging
 
 from django.apps import AppConfig
@@ -45,24 +46,37 @@ class IBLThirdPartyAuthConfig(AppConfig):
     }
 
     @staticmethod
-    def _insert_pipeline_step():
-        """Insert auto_create_user into SOCIAL_AUTH_PIPELINE before ensure_user_information."""
-        from django.conf import settings
+    def _patch_ensure_user_information():
+        """
+        Monkey-patch ensure_user_information to auto-create SSO users.
 
-        pipeline = list(getattr(settings, "SOCIAL_AUTH_PIPELINE", []))
-        target = "common.djangoapps.third_party_auth.pipeline.ensure_user_information"
-        our_step = "ibl_third_party_auth.pipeline.auto_create_user"
-        if target in pipeline and our_step not in pipeline:
-            idx = pipeline.index(target)
-            pipeline.insert(idx, our_step)
-            settings.SOCIAL_AUTH_PIPELINE = tuple(pipeline)
-            log.info("Inserted auto_create_user into SOCIAL_AUTH_PIPELINE at index %d", idx)
-        elif our_step in pipeline:
-            log.info("auto_create_user already in SOCIAL_AUTH_PIPELINE")
-        else:
-            log.warning(
-                "Could not insert auto_create_user: ensure_user_information not found in pipeline"
-            )
+        This is more reliable than inserting into SOCIAL_AUTH_PIPELINE because
+        the pipeline tuple can be set/overwritten at various points during
+        startup.  Patching the function on the module is the same proven
+        approach used for the Apple ID, Azure AD, and Google patches.
+        """
+        try:
+            from common.djangoapps.third_party_auth import pipeline as tpa_pipeline
+            from ibl_third_party_auth.pipeline import auto_create_user
+
+            original_ensure = tpa_pipeline.ensure_user_information
+
+            @functools.wraps(original_ensure)
+            def patched_ensure(*args, **kwargs):
+                if kwargs.get("user") is None:
+                    result = auto_create_user(**kwargs)
+                    if result and isinstance(result, dict) and "user" in result:
+                        kwargs.update(result)
+                        # Call original — it sees an active user and returns None
+                        original_ensure(*args, **kwargs)
+                        # Return our dict so the pipeline accumulates user/is_new
+                        return result
+                return original_ensure(*args, **kwargs)
+
+            tpa_pipeline.ensure_user_information = patched_ensure
+            log.info("Patched ensure_user_information to auto-create SSO users")
+        except Exception:
+            log.exception("Failed to patch ensure_user_information")
 
     def ready(self):
         """
@@ -130,13 +144,9 @@ class IBLThirdPartyAuthConfig(AppConfig):
         except Exception as e:
             log.error(f"Error during patching: {str(e)}", exc_info=True)
 
-        # Insert our auto_create_user pipeline step before ensure_user_information.
-        # This must happen in ready() because SOCIAL_AUTH_PIPELINE is set by
-        # ThirdPartyAuthConfig.ready() → apply_settings(), which runs before
-        # our ready() (third_party_auth is earlier in INSTALLED_APPS).
-        # plugin_settings() runs too early — during settings module loading,
-        # before any AppConfig.ready() has been called.
-        self._insert_pipeline_step()
+        # Monkey-patch ensure_user_information so new SSO users are auto-created
+        # before the function checks for a user and redirects to registration.
+        self._patch_ensure_user_information()
 
         # Import signal handlers
         import ibl_third_party_auth.signals  # noqa
