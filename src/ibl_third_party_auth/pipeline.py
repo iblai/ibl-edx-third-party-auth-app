@@ -7,6 +7,7 @@ preventing unwanted redirects to the registration page.
 """
 
 import logging
+import secrets
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -60,9 +61,12 @@ def auto_create_user(strategy, details, user=None, *args, **kwargs):
         part for part in (first_name, last_name) if part
     ) or username
 
-    # Create the user
+    # Create the user with a random password.  SSO users don't need to know
+    # it, but edx's set_logged_in_cookies pipeline step rejects users whose
+    # password is unusable (has_usable_password() == False → 403).
     user = User.objects.create_user(
         username=username, email=email,
+        password=secrets.token_urlsafe(32),
         first_name=first_name, last_name=last_name,
     )
     user.is_active = True
