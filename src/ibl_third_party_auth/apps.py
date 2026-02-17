@@ -63,8 +63,14 @@ class IBLThirdPartyAuthConfig(AppConfig):
 
             @functools.wraps(original_ensure)
             def patched_ensure(*args, **kwargs):
+                log.info(
+                    "patched ensure_user_information called, user=%s, email=%s",
+                    kwargs.get("user"),
+                    (kwargs.get("details") or {}).get("email"),
+                )
                 if kwargs.get("user") is None:
                     result = auto_create_user(**kwargs)
+                    log.info("auto_create_user returned: %s", result)
                     if result and isinstance(result, dict) and "user" in result:
                         kwargs.update(result)
                         # Call original — it sees an active user and returns None
