@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.translation import gettext as _
 from requests import HTTPError
+from social_core.exceptions import SocialAuthBaseException
 from social_django.middleware import SocialAuthExceptionMiddleware
 
 log = logging.getLogger(__name__)
@@ -41,6 +42,10 @@ class IBLExceptionMiddleware(SocialAuthExceptionMiddleware, MiddlewareMixin):
 
     def process_exception(self, request: Any, exception: Exception) -> Optional[Any]:
         """Handles specific exception raised by Python Social Auth eg HTTPError."""
+        # Only handle social auth related exceptions; let all others propagate normally
+        if not isinstance(exception, (SocialAuthBaseException, HTTPError)):
+            return None
+
         log.exception(
             "Processing social auth exception",
             extra={

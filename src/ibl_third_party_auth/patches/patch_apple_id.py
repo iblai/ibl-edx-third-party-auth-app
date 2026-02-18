@@ -365,8 +365,16 @@ class IBLAppleIdAuth(AppleIdAuth):
             first_name = ""
             last_name = ""
 
+        username = email.split("@", 1)[0]
+
+        # Fall back to username if name is empty (e.g. new user and Apple
+        # didn't send the name in the POST body)
+        if not first_name and not last_name:
+            first_name = username
+            last_name = username
+
         user_details = {
-            "username": email.split("@", 1)[0],
+            "username": username,
             "email": email,
             "first_name": first_name,
             "last_name": last_name,
