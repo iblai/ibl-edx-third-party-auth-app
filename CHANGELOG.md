@@ -5,6 +5,7 @@
 ### Fixed
 - Fix Django admin User deletion causing RecursionError due to circular `__str__` references in edx-platform models. Override User admin's `get_deleted_objects()` to catch RecursionError and return a simplified cascade list.
 - Fix `IBLExceptionMiddleware.process_exception()` catching all exceptions instead of only social auth exceptions. Add early return guard for non-`SocialAuthBaseException`/`HTTPError` exceptions.
+- Fix Apple ID (and other SSO providers) redirecting new users to the registration page instead of auto-creating their account. Monkey-patch `ensure_user_information` to create the User, UserProfile, and set a random password before the pipeline checks for an existing user. This prevents the `/register?tpa-skipped=1` redirect and the 403 "Your account is disabled" error for new SSO users.
 
 ## 2.2.3
 ### Fixed
