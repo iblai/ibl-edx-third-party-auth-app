@@ -63,14 +63,8 @@ class IBLThirdPartyAuthConfig(AppConfig):
 
             @functools.wraps(original_ensure)
             def patched_ensure(*args, **kwargs):
-                log.info(
-                    "patched ensure_user_information called, user=%s, email=%s",
-                    kwargs.get("user"),
-                    (kwargs.get("details") or {}).get("email"),
-                )
                 if kwargs.get("user") is None:
                     result = auto_create_user(**kwargs)
-                    log.info("auto_create_user returned: %s", result)
                     if result and isinstance(result, dict) and "user" in result:
                         kwargs.update(result)
                         # Call original — it sees an active user and returns None
@@ -88,8 +82,6 @@ class IBLThirdPartyAuthConfig(AppConfig):
         """
         Import and apply patches when the app is ready.
         """
-        log.info("IBLThirdPartyAuthConfig.ready() called")
-
         # Fix oauth2_provider settings initialization order issue
         # In multi-node Open edX deployments, oauth2_settings.SCOPES can get cached
         # in __dict__ before Django's OAUTH2_PROVIDER setting is fully loaded.
@@ -118,37 +110,17 @@ class IBLThirdPartyAuthConfig(AppConfig):
             log.warning(f"Error clearing oauth2_provider settings cache: {e}")
 
         try:
-            # Import all relevant modules
-            from common.djangoapps.third_party_auth import appleid
-            from social_core.backends import apple, azuread, google
-
-            log.info(f"Current AppleIdAuth class: {appleid.AppleIdAuth}")
-            log.info(f"Current social_core AppleIdAuth class: {apple.AppleIdAuth}")
-            log.info(f"Current AzureADOAuth2 class: {azuread.AzureADOAuth2}")
-            log.info(f"Current GoogleOAuth2 class: {google.GoogleOAuth2}")
-
             from .patches.patch_apple_id import patch as patch_apple_id
             from .patches.patch_azuread import patch as patch_azuread
             from .patches.patch_google import patch as patch_google
             from .patches.patch_middleware import patch as patch_middleware
 
-            # Apply patches
             patch_apple_id()
             patch_azuread()
             patch_middleware()
             patch_google()
-
-            # Verify patches
-            log.info(f"After patching appleid.AppleIdAuth: {appleid.AppleIdAuth}")
-            log.info(f"After patching apple.AppleIdAuth: {apple.AppleIdAuth}")
-            log.info(f"After patching azuread.AzureADOAuth2: {azuread.AzureADOAuth2}")
-            log.info(f"After patching google.GoogleOAuth2: {google.GoogleOAuth2}")
-
-            # We don't need to force reload the backend during app initialization
-            # The backend will be loaded correctly when needed during requests
-
-        except Exception as e:
-            log.error(f"Error during patching: {str(e)}", exc_info=True)
+        except Exception:
+            log.exception("Error during patching")
 
         # Monkey-patch ensure_user_information so new SSO users are auto-created
         # before the function checks for a user and redirects to registration.
